@@ -1,0 +1,912 @@
+{
+  "metadata": {
+    "timestamp": "2025-07-09T09:53:19.506Z",
+    "pluginVersion": "1.0.0-SNAPSHOT",
+    "analysisPhase": "Phase 3 - Enhanced",
+    "linksExcluded": true,
+    "configuration": {
+      "outputFile": "representation-analysis.json",
+      "outputDir": "target",
+      "includeDemoOutput": true
+    }
+  },
+  "resourceCount": 94,
+  "resources": [
+    {
+      "resourceName": "v1/conceptstopword",
+      "supportedClass": "ConceptStopWord",
+      "handlerClass": "ConceptStopwordResource1_9",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_9",
+      "supportedVersions": ["1.9.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 4, "linkCount": 2, "linksExcluded": true},
+        "FULL": {"propertyCount": 4, "linkCount": 1, "linksExcluded": true},
+        "REF": {"propertyCount": 2, "linkCount": 1, "linksExcluded": true}
+      }
+    },
+    {
+      "resourceName": "v1/alert",
+      "supportedClass": "Alert",
+      "handlerClass": "AlertResource2_0",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs2_0",
+      "supportedVersions": ["2.0.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 8, "linkCount": 2, "linksExcluded": true},
+        "FULL": {"propertyCount": 12, "linkCount": 1, "linksExcluded": true},
+        "REF": {"propertyCount": 3, "linkCount": 1, "linksExcluded": true}
+      }
+    },
+    {
+      "error": "No @Resource annotation found",
+      "className": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs2_1.PersonNameResource2_1"
+    },
+    {
+      "resourceName": "v1/condition",
+      "supportedClass": "Condition",
+      "handlerClass": "ConditionResource2_2",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs2_2",
+      "supportedVersions": ["2.2.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 10, "linkCount": 2, "linksExcluded": true},
+        "FULL": {"propertyCount": 12, "linkCount": 1, "linksExcluded": true},
+        "REF": null
+      }
+    },
+    {
+      "resourceName": "v1/patientdiagnoses",
+      "supportedClass": "Diagnosis",
+      "handlerClass": "DiagnosisResource2_2",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs2_2",
+      "supportedVersions": ["2.2.* - 2.4.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 9, "linkCount": 2, "linksExcluded": true},
+        "FULL": {"propertyCount": 10, "linkCount": 1, "linksExcluded": true},
+        "REF": null
+      }
+    },
+    {
+      "error": "No @Resource annotation found",
+      "className": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs2_0.ConceptAttributeResource2_0"
+    },
+    {
+      "resourceName": "v1/relationshiptype",
+      "supportedClass": "RelationshipType",
+      "handlerClass": "RelationShipTypeResource1_8",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_8",
+      "supportedVersions": ["1.8.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 8, "linkCount": 2, "linksExcluded": true},
+        "FULL": {"propertyCount": 10, "linkCount": 1, "linksExcluded": true},
+        "REF": null
+      }
+    },
+    {
+      "error": "No @Resource annotation found",
+      "className": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs2_2.PatientProgramAttributeResource2_2"
+    },
+    {
+      "resourceName": "v1/visittype",
+      "supportedClass": "VisitType",
+      "handlerClass": "VisitTypeResource1_9",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_9",
+      "supportedVersions": ["1.9.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 5, "linkCount": 2, "linksExcluded": true},
+        "FULL": {"propertyCount": 6, "linkCount": 1, "linksExcluded": true},
+        "REF": null
+      }
+    },
+    {
+      "resourceName": "v1/field",
+      "supportedClass": "Field",
+      "handlerClass": "FieldResource1_8",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_8",
+      "supportedVersions": ["1.8.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 11, "linkCount": 2, "linksExcluded": true},
+        "FULL": {"propertyCount": 12, "linkCount": 1, "linksExcluded": true},
+        "REF": null
+      }
+    },
+    {
+      "resourceName": "v1/patientidentifiertype",
+      "supportedClass": "PatientIdentifierType",
+      "handlerClass": "PatientIdentifierTypeResource2_0",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs2_0",
+      "supportedVersions": ["2.0.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 11, "linkCount": 2, "linksExcluded": true},
+        "FULL": {"propertyCount": 12, "linkCount": 1, "linksExcluded": true},
+        "REF": null
+      }
+    },
+    {
+      "error": "No @Resource annotation found",
+      "className": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_8.FormFieldResource1_8"
+    },
+    {
+      "error": "No @Resource annotation found",
+      "className": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_9.ProviderAttributeResource1_9"
+    },
+    {
+      "resourceName": "v1/conceptsource",
+      "supportedClass": "ConceptSource",
+      "handlerClass": "ConceptSourceResource2_1",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs2_1",
+      "supportedVersions": ["2.1.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 7, "linkCount": 2, "linksExcluded": true},
+        "FULL": {"propertyCount": 8, "linkCount": 1, "linksExcluded": true},
+        "REF": null
+      }
+    },
+    {
+      "resourceName": "v1/drugreferencemap",
+      "supportedClass": "DrugReferenceMap",
+      "handlerClass": "DrugReferenceMapResource1_10",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_10",
+      "supportedVersions": ["1.10.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 5, "linkCount": 2, "linksExcluded": true},
+        "FULL": {"propertyCount": 6, "linkCount": 1, "linksExcluded": true},
+        "REF": {"propertyCount": 2, "linkCount": 2, "linksExcluded": true}
+      }
+    },
+    {
+      "resourceName": "v1/workflow",
+      "supportedClass": "ProgramWorkflow",
+      "handlerClass": "ProgramWorkflowResource1_8",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_8",
+      "supportedVersions": ["1.8.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 5, "linkCount": 2, "linksExcluded": true},
+        "FULL": {"propertyCount": 5, "linkCount": 1, "linksExcluded": true},
+        "REF": {"propertyCount": 4, "linkCount": 1, "linksExcluded": true}
+      }
+    },
+    {
+      "error": "No @Resource annotation found",
+      "className": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs2_0.PersonAddressResource2_0"
+    },
+    {
+      "resourceName": "v1/cohort",
+      "supportedClass": "Cohort",
+      "handlerClass": "CohortResource2_1",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs2_1",
+      "supportedVersions": ["2.1.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 6, "linkCount": 2, "linksExcluded": true},
+        "FULL": {"propertyCount": 7, "linkCount": 1, "linksExcluded": true},
+        "REF": null
+      }
+    },
+    {
+      "error": "No @Resource annotation found",
+      "className": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs2_1.CohortMembershipResource2_1"
+    },
+    {
+      "resourceName": "v1/encounter",
+      "supportedClass": "Encounter",
+      "handlerClass": "EncounterResource2_2",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs2_2",
+      "supportedVersions": ["2.2.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 13, "linkCount": 2, "linksExcluded": true},
+        "FULL": {"propertyCount": 14, "linkCount": 1, "linksExcluded": true},
+        "REF": null
+      }
+    },
+    {
+      "resourceName": "v1/form",
+      "supportedClass": "Form",
+      "handlerClass": "FormResource1_9",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_9",
+      "supportedVersions": ["1.9.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 11, "linkCount": 2, "linksExcluded": true},
+        "FULL": {"propertyCount": 12, "linkCount": 1, "linksExcluded": true},
+        "REF": null
+      }
+    },
+    {
+      "resourceName": "v1/hl7source",
+      "supportedClass": "HL7Source",
+      "handlerClass": "HL7SourceResource1_8",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_8",
+      "supportedVersions": ["1.8.* - 9.*"],
+      "representations": {
+        "DEFAULT": null,
+        "FULL": null,
+        "REF": null
+      }
+    },
+    {
+      "resourceName": "v1/conceptdatatype",
+      "supportedClass": "ConceptDatatype",
+      "handlerClass": "ConceptDatatypeResource2_0",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs2_0",
+      "supportedVersions": ["2.0.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 6, "linkCount": 2, "linksExcluded": true},
+        "FULL": {"propertyCount": 7, "linkCount": 1, "linksExcluded": true},
+        "REF": null
+      }
+    },
+    {
+      "resourceName": "v1/orderfrequency",
+      "supportedClass": "OrderFrequency",
+      "handlerClass": "OrderFrequencyResource1_10",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_10",
+      "supportedVersions": ["1.10.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 6, "linkCount": 2, "linksExcluded": true},
+        "FULL": {"propertyCount": 7, "linkCount": 1, "linksExcluded": true},
+        "REF": null
+      }
+    },
+    {
+      "resourceName": "v1/conceptreferenceterm",
+      "supportedClass": "ConceptReferenceTerm",
+      "handlerClass": "ConceptReferenceTermResource1_9",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_9",
+      "supportedVersions": ["1.9.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 8, "linkCount": 2, "linksExcluded": true},
+        "FULL": {"propertyCount": 9, "linkCount": 1, "linksExcluded": true},
+        "REF": null
+      }
+    },
+    {
+      "resourceName": "v1/programenrollment",
+      "supportedClass": "PatientProgram",
+      "handlerClass": "ProgramEnrollmentResource2_2",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs2_2",
+      "supportedVersions": ["2.2.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 11, "linkCount": 2, "linksExcluded": true},
+        "FULL": {"propertyCount": 12, "linkCount": 1, "linksExcluded": true},
+        "REF": null
+      }
+    },
+    {
+      "resourceName": "v1/personattributetype",
+      "supportedClass": "PersonAttributeType",
+      "handlerClass": "PersonAttributeTypeResource1_8",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_8",
+      "supportedVersions": ["1.8.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 10, "linkCount": 2, "linksExcluded": true},
+        "FULL": {"propertyCount": 12, "linkCount": 1, "linksExcluded": true},
+        "REF": null
+      }
+    },
+    {
+      "resourceName": "v1/providerattributetype",
+      "supportedClass": "ProviderAttributeType",
+      "handlerClass": "ProviderAttributeTypeResource1_9",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_9",
+      "supportedVersions": ["1.9.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 9, "linkCount": 2, "linksExcluded": true},
+        "FULL": {"propertyCount": 12, "linkCount": 1, "linksExcluded": true},
+        "REF": null
+      }
+    },
+    {
+      "resourceName": "v1/hl7",
+      "supportedClass": "IncomingHl7Message1_8",
+      "handlerClass": "HL7MessageResource1_8",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_8",
+      "supportedVersions": ["1.8.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 3, "linkCount": 2, "linksExcluded": true},
+        "FULL": {"propertyCount": 6, "linkCount": 1, "linksExcluded": true},
+        "REF": null
+      }
+    },
+    {
+      "resourceName": "v1/conceptproposal",
+      "supportedClass": "ConceptProposal",
+      "handlerClass": "ConceptProposalResource2_0",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs2_0",
+      "supportedVersions": ["2.0.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 10, "linkCount": 1, "linksExcluded": true},
+        "FULL": {"propertyCount": 15, "linkCount": 1, "linksExcluded": true},
+        "REF": {"propertyCount": 8, "linkCount": 1, "linksExcluded": true}
+      }
+    },
+    {
+      "resourceName": "v1/patient",
+      "supportedClass": "Patient",
+      "handlerClass": "PatientResource1_9",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_9",
+      "supportedVersions": ["1.9.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 5, "linkCount": 2, "linksExcluded": true},
+        "FULL": {"propertyCount": 6, "linkCount": 1, "linksExcluded": true},
+        "REF": null
+      }
+    },
+    {
+      "resourceName": "v1/obstree",
+      "supportedClass": "SimpleObject",
+      "handlerClass": "ObsTreeResource1_9",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_9",
+      "supportedVersions": ["1.9.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 0, "linkCount": 0, "linksExcluded": true},
+        "FULL": {"propertyCount": 0, "linkCount": 0, "linksExcluded": true},
+        "REF": {"propertyCount": 0, "linkCount": 0, "linksExcluded": true}
+      }
+    },
+    {
+      "error": "No @Resource annotation found",
+      "className": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_9.VisitAttributeResource1_9"
+    },
+    {
+      "error": "No @Resource annotation found",
+      "className": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_11.DrugIngredientResource1_11"
+    },
+    {
+      "resourceName": "v1/conceptreferencetermmap",
+      "supportedClass": "ConceptReferenceTermMap",
+      "handlerClass": "ConceptReferenceTermMapResource1_9",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_9",
+      "supportedVersions": ["1.9.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 5, "linkCount": 2, "linksExcluded": true},
+        "FULL": {"propertyCount": 6, "linkCount": 1, "linksExcluded": true},
+        "REF": {"propertyCount": 2, "linkCount": 2, "linksExcluded": true}
+      }
+    },
+    {
+      "resourceName": "v1/visit",
+      "supportedClass": "Visit",
+      "handlerClass": "VisitResource1_9",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_9",
+      "supportedVersions": ["1.9.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 11, "linkCount": 2, "linksExcluded": true},
+        "FULL": {"propertyCount": 12, "linkCount": 1, "linksExcluded": true},
+        "REF": null
+      }
+    },
+    {
+      "resourceName": "v1/conceptstateconversion",
+      "supportedClass": "ConceptStateConversion",
+      "handlerClass": "ConceptStateConversionResource2_0",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs2_0",
+      "supportedVersions": ["2.0.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 5, "linkCount": 2, "linksExcluded": true},
+        "FULL": {"propertyCount": 5, "linkCount": 1, "linksExcluded": true},
+        "REF": {"propertyCount": 5, "linkCount": 2, "linksExcluded": true}
+      }
+    },
+    {
+      "resourceName": "v1/moduleaction",
+      "supportedClass": "ModuleAction",
+      "handlerClass": "ModuleActionResource1_8",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_8",
+      "supportedVersions": ["1.8.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 2, "linkCount": 0, "linksExcluded": true},
+        "FULL": {"propertyCount": 2, "linkCount": 0, "linksExcluded": true},
+        "REF": {"propertyCount": 2, "linkCount": 0, "linksExcluded": true}
+      }
+    },
+    {
+      "error": "No @Resource annotation found",
+      "className": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_9.LocationAttributeResource1_9"
+    },
+    {
+      "error": "No @Resource annotation found",
+      "className": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_8.FieldAnswerResource1_8"
+    },
+    {
+      "resourceName": "v1/drug",
+      "supportedClass": "Drug",
+      "handlerClass": "DrugResource1_12",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_12",
+      "supportedVersions": ["1.12.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 13, "linkCount": 2, "linksExcluded": true},
+        "FULL": {"propertyCount": 14, "linkCount": 1, "linksExcluded": true},
+        "REF": null
+      }
+    },
+    {
+      "resourceName": "v1/obs",
+      "supportedClass": "Obs",
+      "handlerClass": "ObsResource2_1",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs2_1",
+      "supportedVersions": ["2.1.* - 2.6.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 20, "linkCount": 2, "linksExcluded": true},
+        "FULL": {"propertyCount": 21, "linkCount": 1, "linksExcluded": true},
+        "REF": null
+      }
+    },
+    {
+      "resourceName": "v1/administrationlinks",
+      "supportedClass": "AdministrationSectionLinks",
+      "handlerClass": "AdministrationLinksResource2_0",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs2_0",
+      "supportedVersions": ["2.0.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 4, "linkCount": 1, "linksExcluded": true},
+        "FULL": {"propertyCount": 4, "linkCount": 1, "linksExcluded": true},
+        "REF": {"propertyCount": 4, "linkCount": 1, "linksExcluded": true}
+      }
+    },
+    {
+      "error": "No @Resource annotation found",
+      "className": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_8.PersonAttributeResource1_8"
+    },
+    {
+      "resourceName": "v1/privilege",
+      "supportedClass": "Privilege",
+      "handlerClass": "PrivilegeResource1_8",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_8",
+      "supportedVersions": ["1.8.* - 9.*"],
+      "representations": {
+        "DEFAULT": null,
+        "FULL": null,
+        "REF": null
+      }
+    },
+    {
+      "error": "No @Resource annotation found",
+      "className": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_9.FormResourceResource1_9"
+    },
+    {
+      "error": "No @Resource annotation found",
+      "className": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_9.ConceptDescriptionResource1_9"
+    },
+    {
+      "resourceName": "v1/caresetting",
+      "supportedClass": "CareSetting",
+      "handlerClass": "CareSettingResource1_10",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_10",
+      "supportedVersions": ["1.10.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 6, "linkCount": 2, "linksExcluded": true},
+        "FULL": {"propertyCount": 7, "linkCount": 1, "linksExcluded": true},
+        "REF": null
+      }
+    },
+    {
+      "resourceName": "v1/ordertype",
+      "supportedClass": "OrderType",
+      "handlerClass": "OrderTypeResource1_10",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_10",
+      "supportedVersions": ["1.10.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 8, "linkCount": 2, "linksExcluded": true},
+        "FULL": {"propertyCount": 9, "linkCount": 1, "linksExcluded": true},
+        "REF": null
+      }
+    },
+    {
+      "resourceName": "v1/visitattributetype",
+      "supportedClass": "VisitAttributeType",
+      "handlerClass": "VisitAttributeTypeResource1_9",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_9",
+      "supportedVersions": ["1.9.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 9, "linkCount": 2, "linksExcluded": true},
+        "FULL": {"propertyCount": 12, "linkCount": 1, "linksExcluded": true},
+        "REF": null
+      }
+    },
+    {
+      "error": "No @Resource annotation found",
+      "className": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_12.OrderSetMemberResource1_12"
+    },
+    {
+      "resourceName": "v1/serverlog",
+      "supportedClass": "ServerLogActionWrapper",
+      "handlerClass": "ServerLogResource2_4",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs2_4",
+      "supportedVersions": ["2.4.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 1, "linkCount": 0, "linksExcluded": true},
+        "FULL": {"propertyCount": 1, "linkCount": 0, "linksExcluded": true},
+        "REF": {"propertyCount": 1, "linkCount": 0, "linksExcluded": true}
+      }
+    },
+    {
+      "resourceName": "v1/conceptclass",
+      "supportedClass": "ConceptClass",
+      "handlerClass": "ConceptClassResource1_8",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_8",
+      "supportedVersions": ["1.8.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 5, "linkCount": 2, "linksExcluded": true},
+        "FULL": {"propertyCount": 6, "linkCount": 1, "linksExcluded": true},
+        "REF": null
+      }
+    },
+    {
+      "resourceName": "v1/relationship",
+      "supportedClass": "Relationship",
+      "handlerClass": "RelationshipResource1_9",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_9",
+      "supportedVersions": ["1.9.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 8, "linkCount": 2, "linksExcluded": true},
+        "FULL": {"propertyCount": 9, "linkCount": 1, "linksExcluded": true},
+        "REF": null
+      }
+    },
+    {
+      "error": "No @Resource annotation found",
+      "className": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_9.EncounterProviderResource1_9"
+    },
+    {
+      "error": "No @Resource annotation found",
+      "className": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_8.PatientStateResource1_8"
+    },
+    {
+      "resourceName": "v1/locationattributetype",
+      "supportedClass": "LocationAttributeType",
+      "handlerClass": "LocationAttributeTypeResource1_9",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_9",
+      "supportedVersions": ["1.9.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 9, "linkCount": 2, "linksExcluded": true},
+        "FULL": {"propertyCount": 12, "linkCount": 1, "linksExcluded": true},
+        "REF": null
+      }
+    },
+    {
+      "resourceName": "v1/provider",
+      "supportedClass": "Provider",
+      "handlerClass": "ProviderResource1_9",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_9",
+      "supportedVersions": ["1.9.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 6, "linkCount": 2, "linksExcluded": true},
+        "FULL": {"propertyCount": 7, "linkCount": 1, "linksExcluded": true},
+        "REF": null
+      }
+    },
+    {
+      "resourceName": "v1/fieldtype",
+      "supportedClass": "FieldType",
+      "handlerClass": "FieldTypeResource1_8",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_8",
+      "supportedVersions": ["1.8.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 6, "linkCount": 2, "linksExcluded": true},
+        "FULL": {"propertyCount": 7, "linkCount": 1, "linksExcluded": true},
+        "REF": null
+      }
+    },
+    {
+      "resourceName": "v1/user",
+      "supportedClass": "UserAndPassword1_8",
+      "handlerClass": "UserResource2_2",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs2_2",
+      "supportedVersions": ["2.2.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 10, "linkCount": 2, "linksExcluded": true},
+        "FULL": {"propertyCount": 13, "linkCount": 1, "linksExcluded": true},
+        "REF": null
+      }
+    },
+    {
+      "resourceName": "v1/conceptmaptype",
+      "supportedClass": "ConceptMapType",
+      "handlerClass": "ConceptMapTypeResource1_9",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_9",
+      "supportedVersions": ["1.9.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 6, "linkCount": 2, "linksExcluded": true},
+        "FULL": {"propertyCount": 7, "linkCount": 1, "linksExcluded": true},
+        "REF": null
+      }
+    },
+    {
+      "resourceName": "v1/systemsetting",
+      "supportedClass": "GlobalProperty",
+      "handlerClass": "SystemSettingResource1_9",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_9",
+      "supportedVersions": ["1.9.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 5, "linkCount": 2, "linksExcluded": true},
+        "FULL": {"propertyCount": 9, "linkCount": 1, "linksExcluded": true},
+        "REF": {"propertyCount": 2, "linkCount": 1, "linksExcluded": true}
+      }
+    },
+    {
+      "error": "No @Resource annotation found",
+      "className": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs2_0.PatientAllergyResource2_0"
+    },
+    {
+      "resourceName": "v1/order",
+      "supportedClass": "Order",
+      "handlerClass": "OrderResource2_2",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs2_2",
+      "supportedVersions": ["2.2.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 21, "linkCount": 2, "linksExcluded": true},
+        "FULL": {"propertyCount": 24, "linkCount": 1, "linksExcluded": true},
+        "REF": null
+      }
+    },
+    {
+      "resourceName": "v1/databasechange",
+      "supportedClass": "OpenMRSChangeSet",
+      "handlerClass": "DatabaseChangeResource2_0",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs2_0",
+      "supportedVersions": ["2.0.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 5, "linkCount": 2, "linksExcluded": true},
+        "FULL": {"propertyCount": 7, "linkCount": 1, "linksExcluded": true},
+        "REF": {"propertyCount": 2, "linkCount": 2, "linksExcluded": true}
+      }
+    },
+    {
+      "error": "No @Resource annotation found",
+      "className": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_9.ConceptMapResource1_9"
+    },
+    {
+      "resourceName": "v1/nametemplate",
+      "supportedClass": "NameTemplate",
+      "handlerClass": "NameTemplateResource2_0",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs2_0",
+      "supportedVersions": ["2.0.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 11, "linkCount": 0, "linksExcluded": true},
+        "FULL": {"propertyCount": 11, "linkCount": 0, "linksExcluded": true},
+        "REF": {"propertyCount": 11, "linkCount": 0, "linksExcluded": true}
+      }
+    },
+    {
+      "resourceName": "v1/module",
+      "supportedClass": "Module",
+      "handlerClass": "ModuleResource1_8",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_8",
+      "supportedVersions": ["1.8.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 7, "linkCount": 4, "linksExcluded": true},
+        "FULL": {"propertyCount": 12, "linkCount": 3, "linksExcluded": true},
+        "REF": {"propertyCount": 2, "linkCount": 1, "linksExcluded": true}
+      }
+    },
+    {
+      "resourceName": "v1/customdatatype",
+      "supportedClass": "CustomDatatypeRepresentation",
+      "handlerClass": "CustomDatatypeResource1_9",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_9",
+      "supportedVersions": ["1.9.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 4, "linkCount": 2, "linksExcluded": true},
+        "FULL": {"propertyCount": 4, "linkCount": 1, "linksExcluded": true},
+        "REF": {"propertyCount": 2, "linkCount": 2, "linksExcluded": true}
+      }
+    },
+    {
+      "resourceName": "v1/program",
+      "supportedClass": "Program",
+      "handlerClass": "ProgramResource1_10",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_10",
+      "supportedVersions": ["1.10.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 7, "linkCount": 2, "linksExcluded": true},
+        "FULL": {"propertyCount": 8, "linkCount": 1, "linksExcluded": true},
+        "REF": {"propertyCount": 5, "linkCount": 1, "linksExcluded": true}
+      }
+    },
+    {
+      "resourceName": "v1/orderset",
+      "supportedClass": "OrderSet",
+      "handlerClass": "OrderSetResource1_12",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_12",
+      "supportedVersions": ["1.12.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 7, "linkCount": 2, "linksExcluded": true},
+        "FULL": {"propertyCount": 8, "linkCount": 1, "linksExcluded": true},
+        "REF": null
+      }
+    },
+    {
+      "resourceName": "v1/concept",
+      "supportedClass": "Concept",
+      "handlerClass": "ConceptResource2_0",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs2_0",
+      "supportedVersions": ["2.0.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 14, "linkCount": 2, "linksExcluded": true},
+        "FULL": null,
+        "REF": null
+      }
+    },
+    {
+      "resourceName": "v1/location",
+      "supportedClass": "Location",
+      "handlerClass": "LocationResource2_0",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs2_0",
+      "supportedVersions": ["2.0.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 31, "linkCount": 2, "linksExcluded": true},
+        "FULL": {"propertyCount": 32, "linkCount": 1, "linksExcluded": true},
+        "REF": null
+      }
+    },
+    {
+      "error": "No @Resource annotation found",
+      "className": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs2_0.AlertRecipientResource2_0"
+    },
+    {
+      "resourceName": "v1/ordergroup",
+      "supportedClass": "OrderGroup",
+      "handlerClass": "OrderGroupResource1_12",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_12",
+      "supportedVersions": ["1.12.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 7, "linkCount": 2, "linksExcluded": true},
+        "FULL": {"propertyCount": 8, "linkCount": 1, "linksExcluded": true},
+        "REF": {"propertyCount": 2, "linkCount": 1, "linksExcluded": true}
+      }
+    },
+    {
+      "resourceName": "v1/role",
+      "supportedClass": "Role",
+      "handlerClass": "RoleResource1_8",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_8",
+      "supportedVersions": ["1.8.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 7, "linkCount": 2, "linksExcluded": true},
+        "FULL": {"propertyCount": 9, "linkCount": 1, "linksExcluded": true},
+        "REF": null
+      }
+    },
+    {
+      "resourceName": "v1/taskdefinition",
+      "supportedClass": "TaskDefinition",
+      "handlerClass": "TaskDefinitionResource2_4",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs2_4",
+      "supportedVersions": ["2.4.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 6, "linkCount": 3, "linksExcluded": true},
+        "FULL": {"propertyCount": 11, "linkCount": 2, "linksExcluded": true},
+        "REF": {"propertyCount": 4, "linkCount": 1, "linksExcluded": true}
+      }
+    },
+    {
+      "resourceName": "v1/person",
+      "supportedClass": "Person",
+      "handlerClass": "PersonResource2_2",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs2_2",
+      "supportedVersions": ["2.2.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 15, "linkCount": 2, "linksExcluded": true},
+        "FULL": {"propertyCount": 19, "linkCount": 1, "linksExcluded": true},
+        "REF": null
+      }
+    },
+    {
+      "resourceName": "v1/encountertype",
+      "supportedClass": "EncounterType",
+      "handlerClass": "EncounterTypeResource1_8",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_8",
+      "supportedVersions": ["1.8.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 5, "linkCount": 2, "linksExcluded": true},
+        "FULL": {"propertyCount": 6, "linkCount": 1, "linksExcluded": true},
+        "REF": null
+      }
+    },
+    {
+      "error": "No @Resource annotation found",
+      "className": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_8.PatientIdentifierResource1_8"
+    },
+    {
+      "resourceName": "v1/taskaction",
+      "supportedClass": "TaskAction",
+      "handlerClass": "TaskActionResource1_8",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_8",
+      "supportedVersions": ["1.8.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 2, "linkCount": 0, "linksExcluded": true},
+        "FULL": {"propertyCount": 2, "linkCount": 0, "linksExcluded": true},
+        "REF": {"propertyCount": 2, "linkCount": 0, "linksExcluded": true}
+      }
+    },
+    {
+      "error": "No @Resource annotation found",
+      "className": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_9.ConceptNameResource1_9"
+    },
+    {
+      "error": "No @Resource annotation found",
+      "className": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_9.CustomDatatypeHandlerResource1_9"
+    },
+    {
+      "resourceName": "v1/conceptsearch",
+      "supportedClass": "ConceptSearchResult",
+      "handlerClass": "ConceptSearchResource1_9",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_9",
+      "supportedVersions": ["1.9.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 3, "linkCount": 0, "linksExcluded": true},
+        "FULL": {"propertyCount": 5, "linkCount": 0, "linksExcluded": true},
+        "REF": {"propertyCount": 3, "linkCount": 0, "linksExcluded": true}
+      }
+    },
+    {
+      "resourceName": "v1/locationtag",
+      "supportedClass": "LocationTag",
+      "handlerClass": "LocationTagResource1_8",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_8",
+      "supportedVersions": ["1.8.* - 9.*"],
+      "representations": {
+        "DEFAULT": null,
+        "FULL": null,
+        "REF": null
+      }
+    },
+    {
+      "resourceName": "v1/conceptattributetype",
+      "supportedClass": "ConceptAttributeType",
+      "handlerClass": "ConceptAttributeTypeResource2_0",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs2_0",
+      "supportedVersions": ["2.0.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 9, "linkCount": 2, "linksExcluded": true},
+        "FULL": {"propertyCount": 12, "linkCount": 1, "linksExcluded": true},
+        "REF": null
+      }
+    },
+    {
+      "error": "No @Resource annotation found",
+      "className": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs2_3.FulfillerDetailsResource2_3"
+    },
+    {
+      "resourceName": "v1/encounterrole",
+      "supportedClass": "EncounterRole",
+      "handlerClass": "EncounterRoleResource1_11",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_11",
+      "supportedVersions": ["1.11.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 5, "linkCount": 2, "linksExcluded": true},
+        "FULL": {"propertyCount": 6, "linkCount": 1, "linksExcluded": true},
+        "REF": null
+      }
+    },
+    {
+      "resourceName": "v1/programattributetype",
+      "supportedClass": "ProgramAttributeType",
+      "handlerClass": "ProgramAttributeTypeResource2_2",
+      "handlerPackage": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs2_2",
+      "supportedVersions": ["2.2.* - 9.*"],
+      "representations": {
+        "DEFAULT": {"propertyCount": 9, "linkCount": 2, "linksExcluded": true},
+        "FULL": {"propertyCount": 12, "linkCount": 1, "linksExcluded": true},
+        "REF": {"propertyCount": 4, "linkCount": 1, "linksExcluded": true}
+      }
+    },
+    {
+      "error": "No @Resource annotation found",
+      "className": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_8.ProgramWorkflowStateResource1_8"
+    },
+    {
+      "error": "No @Resource annotation found",
+      "className": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_8.DrugOrderSubclassHandler1_8"
+    },
+    {
+      "error": "No @Resource annotation found",
+      "className": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_10.TestOrderSubclassHandler1_10"
+    },
+    {
+      "error": "No @Resource annotation found",
+      "className": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_10.DrugOrderSubclassHandler1_10"
+    },
+    {
+      "error": "No @Resource annotation found",
+      "className": "org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs1_12.DrugOrderSubclassHandler1_12"
+    }
+  ]
+}
