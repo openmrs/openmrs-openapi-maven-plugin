@@ -132,7 +132,6 @@ mvn dependency:tree
 
 - **OpenMRS Wiki**: https://wiki.openmrs.org/
 - **Developer Documentation**: https://wiki.openmrs.org/display/docs/Developer+Documentation
-- **REST API Documentation**: https://wiki.openmrs.org/display/docs/REST+Web+Service+API+For+Clients
 
 ## Related Projects
 
