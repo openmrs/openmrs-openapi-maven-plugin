@@ -8,6 +8,8 @@ import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.project.MavenProject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -20,6 +22,8 @@ import java.util.concurrent.TimeUnit;
       defaultPhase = LifecyclePhase.PROCESS_CLASSES,
       requiresDependencyResolution = ResolutionScope.TEST)
 public class RepresentationAnalyzerMojo extends AbstractMojo {
+    
+    private static final Logger log = LoggerFactory.getLogger(RepresentationAnalyzerMojo.class);
 
     @Parameter(defaultValue = "${project}", required = true, readonly = true)
     private MavenProject project;
@@ -30,28 +34,23 @@ public class RepresentationAnalyzerMojo extends AbstractMojo {
     @Parameter(defaultValue = "representation-analysis.json", property = "outputFile")
     private String outputFile;
 
-    @Parameter(defaultValue = "true", property = "generateReport")
-    private boolean generateReport;
-
     @Parameter(defaultValue = "300", property = "timeoutSeconds")
     private int timeoutSeconds;
 
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
         
-        getLog().info("=== OpenMRS REST Representation Analyzer (Forked Process) ===");
-        getLog().info("Project: " + project.getName());
-        getLog().info("Output directory: " + outputDirectory);
+        log.info("=== OpenMRS REST Representation Analyzer ===");
+        log.debug("Project: {}", project.getName());
+        log.debug("Output directory: {}", outputDirectory);
         
-        // Ensure output directory exists
         File outputDir = new File(outputDirectory);
         if (!outputDir.exists()) {
             outputDir.mkdirs();
         }
         
         try {
-            // Run test in forked process with correct classpath
-            getLog().info("Running representation analysis in forked process...");
+            log.debug("Running representation analysis in forked process...");
             
             int exitCode = runTestInForkedProcess();
             
@@ -59,29 +58,36 @@ public class RepresentationAnalyzerMojo extends AbstractMojo {
                 throw new MojoExecutionException("Test execution failed with exit code: " + exitCode);
             }
             
-            getLog().info("Test completed successfully");
+            log.debug("Test completed successfully");
             
-            // Process results
             processAnalysisResults();
             
-            getLog().info("Representation analysis completed successfully");
-            
-        } catch (Exception e) {
-            getLog().error("Failed to analyze representations: " + e.getMessage(), e);
-            throw new MojoExecutionException("Failed to analyze representations", e);
+            log.info("Representation analysis completed successfully");
+            log.info("=============================="); 
+        } catch (IOException | InterruptedException e) {
+            log.error("Process execution error: {}", e.getMessage(), e);
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+                throw new MojoExecutionException("Failed to execute analysis process", e);
+        } catch (RuntimeException e) {
+            if (e.getMessage().contains("timeout")) {
+                log.error("Analysis process timed out: {}", e.getMessage(), e);
+                throw new MojoExecutionException("Analysis timed out after " + timeoutSeconds + " seconds", e);
+            } else {
+                log.error("Unexpected runtime error - this may indicate a bug: {}", e.getMessage(), e);
+                throw e;
+            }
         }
     }
     
     private int runTestInForkedProcess() throws IOException, InterruptedException {
         
-        // Build classpath from project dependencies
         List<String> classpath = new ArrayList<>();
         
-        // Add compiled classes
         classpath.add(project.getBuild().getOutputDirectory());
         classpath.add(project.getBuild().getTestOutputDirectory());
         
-        // Add all dependencies
         for (Object artifact : project.getTestArtifacts()) {
             org.apache.maven.artifact.Artifact dep = (org.apache.maven.artifact.Artifact) artifact;
             if (dep.getFile() != null) {
@@ -90,15 +96,13 @@ public class RepresentationAnalyzerMojo extends AbstractMojo {
         }
         
         String classpathString = String.join(File.pathSeparator, classpath);
-        getLog().info("Forked process will use " + classpath.size() + " classpath entries");
+        log.debug("Forked process will use {} classpath entries", classpath.size());
         
-        // Build command
         List<String> command = new ArrayList<>();
         command.add(getJavaExecutable());
         command.add("-cp");
         command.add(classpathString);
         
-        // Add system properties for OpenMRS
         command.add("-DdatabaseUrl=jdbc:h2:mem:openmrs;DB_CLOSE_DELAY=-1");
         command.add("-DdatabaseDriver=org.h2.Driver");
         command.add("-DuseInMemoryDatabase=true");
@@ -106,18 +110,16 @@ public class RepresentationAnalyzerMojo extends AbstractMojo {
         command.add("-DdatabasePassword=");
         command.add("-Djava.awt.headless=true");
         
-        // Add output directory as system property
         command.add("-DanalysisOutputDir=" + outputDirectory);
         command.add("-DanalysisOutputFile=" + outputFile);
         
-        // Run the test runner
         command.add("org.junit.runner.JUnitCore");
         command.add("org.openmrs.plugin.rest.analyzer.test.RepresentationAnalyzerTest");
         
-        getLog().debug("Executing command: " + String.join(" ", command));
+        log.debug("Executing command: {}", String.join(" ", command));
         
         ProcessBuilder pb = new ProcessBuilder(command);
-        pb.inheritIO(); // This will show test output in Maven log
+        pb.inheritIO();
         pb.directory(project.getBasedir());
         
         Process process = pb.start();
@@ -152,44 +154,38 @@ public class RepresentationAnalyzerMojo extends AbstractMojo {
     }
     
     private void processAnalysisResults() throws IOException {
-        // Look for the output file created by the test (in target directory)
         File expectedOutput = new File(project.getBuild().getDirectory(), "representation-analysis.json");
         
         if (!expectedOutput.exists()) {
-            getLog().warn("Expected output file not found: " + expectedOutput.getAbsolutePath());
+            log.warn("Expected output file not found: {}", expectedOutput.getAbsolutePath());
             
-            // Look for any JSON files in the target directory
             File targetDir = new File(project.getBuild().getDirectory());
             File[] jsonFiles = targetDir.listFiles((dir, name) -> name.endsWith(".json"));
             if (jsonFiles != null && jsonFiles.length > 0) {
-                getLog().info("Found alternative output files:");
+                log.info("Found alternative output files:");
                 for (File jsonFile : jsonFiles) {
-                    getLog().info("  - " + jsonFile.getName() + " (" + jsonFile.length() + " bytes)");
+                    log.info("  - {} ({} bytes)", jsonFile.getName(), jsonFile.length());
                 }
             }
             return;
         }
         
-        // Read and log summary
         String content = new String(Files.readAllBytes(expectedOutput.toPath()));
-        getLog().info("=== Analysis Results Summary ===");
-        getLog().info("Analysis output: " + expectedOutput.getAbsolutePath());
-        getLog().info("Output size: " + content.length() + " characters");
+        log.debug("=== Analysis Results Summary ===");
+        log.debug("Analysis output: {}", expectedOutput.getAbsolutePath());
+        log.debug("Output size: {} characters", content.length());
         
-        // Extract basic metrics
         if (content.contains("\"resourceCount\"")) {
-            // Could parse JSON here for detailed metrics
-            getLog().info("✅ Resource analysis completed successfully");
+            log.debug("Resource analysis completed successfully");
         } else if (content.contains("\"resources\"")) {
-            getLog().info("✅ Resource analysis completed successfully");
+            log.debug("Resource analysis completed successfully");
         }
         
-        // Copy to final configured output location
         File finalOutputFile = new File(outputDirectory, outputFile);
         Files.copy(expectedOutput.toPath(), finalOutputFile.toPath(), 
                   java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-        getLog().info("Final output: " + finalOutputFile.getAbsolutePath());
+        log.debug("Final output: {}", finalOutputFile.getAbsolutePath());
         
-        getLog().info("==============================");
+        log.debug("==============================");
     }
 }

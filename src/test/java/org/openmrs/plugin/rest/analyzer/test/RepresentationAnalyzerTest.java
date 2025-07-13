@@ -23,19 +23,10 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
-/**
- * Phase 3: Enhanced Test Infrastructure
- * 
- * JUnit test that runs with full OpenMRS context to analyze REST resource representations.
- * This test is invoked programmatically by the Maven plugin.
- * 
- * Follows the exact pattern from BaseModuleWebContextSensitiveTest for proper context initialization.
- */
 public class RepresentationAnalyzerTest extends BaseModuleWebContextSensitiveTest {
 
     private static final Logger log = LoggerFactory.getLogger(RepresentationAnalyzerTest.class);
     
-    // Configuration: can be overridden by system properties
     private static final String OUTPUT_FILE_NAME = System.getProperty("representation.analyzer.output.file", "representation-analysis.json");
     private static final String OUTPUT_DIR = System.getProperty("representation.analyzer.output.dir", "target");
     private static final boolean INCLUDE_DEMO_OUTPUT = Boolean.parseBoolean(System.getProperty("representation.analyzer.demo.output", "true"));
@@ -54,7 +45,6 @@ public class RepresentationAnalyzerTest extends BaseModuleWebContextSensitiveTes
         log.info("REST service initialized");
         log.info("Resource handlers after init: " + restService.getResourceHandlers().size());
         
-        // Configure for analysis
         Context.getAdministrationService().saveGlobalProperty(
             new GlobalProperty(RestConstants.SWAGGER_QUIET_DOCS_GLOBAL_PROPERTY_NAME, "true"));
         
@@ -66,7 +56,6 @@ public class RepresentationAnalyzerTest extends BaseModuleWebContextSensitiveTes
     public void analyzeResourceRepresentations() throws IOException {
         log.info("=== Starting Representation Analysis ===");
         
-        // Verify context is properly initialized
         assertTrue("OpenMRS session should be open", Context.isSessionOpen());
         
         RestService restService = Context.getService(RestService.class);
@@ -84,12 +73,11 @@ public class RepresentationAnalyzerTest extends BaseModuleWebContextSensitiveTes
         
         assertFalse("Should have at least one resource handler", handlers.isEmpty());
         
-        // === DEMO: Show basic resource access (configurable) ===
         if (INCLUDE_DEMO_OUTPUT) {
             log.info("=== DEMO: Accessing REST Resource Properties ===");
             int demoCount = 0;
             for (DelegatingResourceHandler<?> handler : handlers) {
-                if (demoCount >= 3) break; // Only show first 3 for demo
+                if (demoCount >= 3) break; 
                 
                 Resource resourceAnnotation = handler.getClass().getAnnotation(Resource.class);
                 if (resourceAnnotation != null) {
@@ -97,15 +85,13 @@ public class RepresentationAnalyzerTest extends BaseModuleWebContextSensitiveTes
                     log.info("  - Supported class: {}", resourceAnnotation.supportedClass().getSimpleName());
                     log.info("  - Handler class: {}", handler.getClass().getSimpleName());
                     
-                    // Try to get DEFAULT representation
                     try {
                         DelegatingResourceDescription defaultRep = handler.getRepresentationDescription(Representation.DEFAULT);
                         if (defaultRep != null && defaultRep.getProperties() != null) {
                             log.info("  - DEFAULT representation properties: {}", defaultRep.getProperties().size());
-                            // Show first few property names
                             int propCount = 0;
                             for (String propName : defaultRep.getProperties().keySet()) {
-                                if (propCount >= 3) break; // Only show first 3 properties
+                                if (propCount >= 3) break; 
                                 log.info("    * Property: {}", propName);
                                 propCount++;
                             }
@@ -121,7 +107,6 @@ public class RepresentationAnalyzerTest extends BaseModuleWebContextSensitiveTes
             log.info("=== END DEMO ===");
         }
         
-        // Phase 3: Enhanced analysis structure with metadata
         StringBuilder analysisResult = new StringBuilder();
         analysisResult.append("{\n");
         analysisResult.append("  \"metadata\": {\n");
@@ -151,7 +136,6 @@ public class RepresentationAnalyzerTest extends BaseModuleWebContextSensitiveTes
         analysisResult.append("\n  ]\n");
         analysisResult.append("}\n");
         
-        // Write results to file for the Maven plugin to read (configurable location)
         File outputDir = new File(OUTPUT_DIR);
         if (!outputDir.exists()) {
             outputDir.mkdirs();
@@ -167,7 +151,6 @@ public class RepresentationAnalyzerTest extends BaseModuleWebContextSensitiveTes
         log.info("Output written to: " + outputFile.getAbsolutePath());
         log.info("File size: " + outputFile.length() + " bytes");
         
-        // Phase 3: Success/failure summary
         int successCount = 0;
         int errorCount = 0;
         for (DelegatingResourceHandler<?> handler : handlers) {
@@ -184,16 +167,11 @@ public class RepresentationAnalyzerTest extends BaseModuleWebContextSensitiveTes
         assertTrue("Output file should exist", outputFile.exists());
         assertTrue("Output file should not be empty", outputFile.length() > 0);
     }
-    
-    /**
-     * Analyze a single resource handler and extract representation metadata.
-     * Phase 3: Enhanced implementation with better error handling and debugging info.
-     */
+
     private String analyzeResourceHandler(DelegatingResourceHandler<?> handler) {
         StringBuilder result = new StringBuilder();
         
         try {
-            // Get resource metadata
             Resource resourceAnnotation = handler.getClass().getAnnotation(Resource.class);
             
             if (resourceAnnotation != null) {
@@ -210,7 +188,6 @@ public class RepresentationAnalyzerTest extends BaseModuleWebContextSensitiveTes
                 }
                 result.append("],\n");
                 
-                // Phase 3: Try to get representations with enhanced error handling
                 result.append("      \"representations\": {\n");
                 result.append(analyzeRepresentations(handler));
                 result.append("      }\n");
@@ -229,14 +206,10 @@ public class RepresentationAnalyzerTest extends BaseModuleWebContextSensitiveTes
         return result.toString();
     }
     
-    /**
-     * Analyze different representation types for a resource handler.
-     * Phase 3: Enhanced implementation with better error handling and link verification.
-     */
+
     private String analyzeRepresentations(DelegatingResourceHandler<?> handler) {
         StringBuilder result = new StringBuilder();
         
-        // Analyze DEFAULT representation
         result.append("        \"DEFAULT\": ");
         try {
             DelegatingResourceDescription defaultRep = handler.getRepresentationDescription(Representation.DEFAULT);
@@ -246,7 +219,6 @@ public class RepresentationAnalyzerTest extends BaseModuleWebContextSensitiveTes
         }
         result.append(",\n");
         
-        // Analyze FULL representation
         result.append("        \"FULL\": ");
         try {
             DelegatingResourceDescription fullRep = handler.getRepresentationDescription(Representation.FULL);
@@ -256,7 +228,6 @@ public class RepresentationAnalyzerTest extends BaseModuleWebContextSensitiveTes
         }
         result.append(",\n");
         
-        // Analyze REF representation
         result.append("        \"REF\": ");
         try {
             DelegatingResourceDescription refRep = handler.getRepresentationDescription(Representation.REF);
@@ -269,10 +240,7 @@ public class RepresentationAnalyzerTest extends BaseModuleWebContextSensitiveTes
         return result.toString();
     }
     
-    /**
-     * Analyze a single representation description.
-     * Phase 3: Enhanced property counting with link verification.
-     */
+
     private String analyzeRepresentationDescription(DelegatingResourceDescription description) {
         if (description == null) {
             return "null";
@@ -286,7 +254,6 @@ public class RepresentationAnalyzerTest extends BaseModuleWebContextSensitiveTes
                 propertyCount = description.getProperties().size();
             }
             
-            // Verify links are separate from properties (as expected)
             if (description.getLinks() != null) {
                 linkCount = description.getLinks().size();
             }
