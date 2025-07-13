@@ -14,8 +14,11 @@ import org.openmrs.web.test.BaseModuleWebContextSensitiveTest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Collection;
 
@@ -29,7 +32,6 @@ public class RepresentationAnalyzerTest extends BaseModuleWebContextSensitiveTes
     
     private static final String OUTPUT_FILE_NAME = System.getProperty("representation.analyzer.output.file", "representation-analysis.json");
     private static final String OUTPUT_DIR = System.getProperty("representation.analyzer.output.dir", "target");
-    private static final boolean INCLUDE_DEMO_OUTPUT = Boolean.parseBoolean(System.getProperty("representation.analyzer.demo.output", "true"));
 
     @Before
     public void setUp() throws Exception {
@@ -56,219 +58,237 @@ public class RepresentationAnalyzerTest extends BaseModuleWebContextSensitiveTes
     public void analyzeResourceRepresentations() throws IOException {
         log.info("=== Starting Representation Analysis ===");
         
-        assertTrue("OpenMRS session should be open", Context.isSessionOpen());
-        
-        RestService restService = Context.getService(RestService.class);
-        assertNotNull("RestService should be available", restService);
-        assertNotNull("Resource handlers should be available", restService.getResourceHandlers());
-        
-        Collection<DelegatingResourceHandler<?>> handlers = restService.getResourceHandlers();
-        int handlerCount = handlers.size();
-        log.info("Resource handlers found: " + handlerCount);
-        
-        if (handlerCount == 0) {
-            log.warn("No resource handlers found. This may indicate a configuration issue.");
-            log.warn("Available services: {}", Context.getRegisteredComponents(Object.class).size());
-        }
-        
-        assertFalse("Should have at least one resource handler", handlers.isEmpty());
-        
-        if (INCLUDE_DEMO_OUTPUT) {
-            log.info("=== DEMO: Accessing REST Resource Properties ===");
-            int demoCount = 0;
-            for (DelegatingResourceHandler<?> handler : handlers) {
-                if (demoCount >= 3) break; 
-                
-                Resource resourceAnnotation = handler.getClass().getAnnotation(Resource.class);
-                if (resourceAnnotation != null) {
-                    log.info("DEMO Resource {}: {}", demoCount + 1, resourceAnnotation.name());
-                    log.info("  - Supported class: {}", resourceAnnotation.supportedClass().getSimpleName());
-                    log.info("  - Handler class: {}", handler.getClass().getSimpleName());
-                    
-                    try {
-                        DelegatingResourceDescription defaultRep = handler.getRepresentationDescription(Representation.DEFAULT);
-                        if (defaultRep != null && defaultRep.getProperties() != null) {
-                            log.info("  - DEFAULT representation properties: {}", defaultRep.getProperties().size());
-                            int propCount = 0;
-                            for (String propName : defaultRep.getProperties().keySet()) {
-                                if (propCount >= 3) break; 
-                                log.info("    * Property: {}", propName);
-                                propCount++;
-                            }
-                        }
-                    } catch (Exception e) {
-                        log.info("  - DEFAULT representation error: {}", e.getMessage());
-                    }
-                    
-                    log.info("  ---");
-                    demoCount++;
-                }
-            }
-            log.info("=== END DEMO ===");
-        }
-        
-        StringBuilder analysisResult = new StringBuilder();
-        analysisResult.append("{\n");
-        analysisResult.append("  \"metadata\": {\n");
-        analysisResult.append("    \"timestamp\": \"").append(java.time.Instant.now().toString()).append("\",\n");
-        analysisResult.append("    \"pluginVersion\": \"1.0.0-SNAPSHOT\",\n");
-        analysisResult.append("    \"analysisPhase\": \"Phase 3 - Enhanced\",\n");
-        analysisResult.append("    \"linksExcluded\": true,\n");
-        analysisResult.append("    \"configuration\": {\n");
-        analysisResult.append("      \"outputFile\": \"").append(OUTPUT_FILE_NAME).append("\",\n");
-        analysisResult.append("      \"outputDir\": \"").append(OUTPUT_DIR).append("\",\n");
-        analysisResult.append("      \"includeDemoOutput\": ").append(INCLUDE_DEMO_OUTPUT).append("\n");
-        analysisResult.append("    }\n");
-        analysisResult.append("  },\n");
-        analysisResult.append("  \"resourceCount\": ").append(handlerCount).append(",\n");
-        analysisResult.append("  \"resources\": [\n");
-        
-        boolean first = true;
-        for (DelegatingResourceHandler<?> handler : handlers) {
-            if (!first) analysisResult.append(",\n");
-            first = false;
+        try {
+            assertTrue("OpenMRS session should be open", Context.isSessionOpen());
             
-            analysisResult.append("    {\n");
-            analysisResult.append(analyzeResourceHandler(handler));
-            analysisResult.append("    }");
-        }
-        
-        analysisResult.append("\n  ]\n");
-        analysisResult.append("}\n");
-        
-        File outputDir = new File(OUTPUT_DIR);
-        if (!outputDir.exists()) {
-            outputDir.mkdirs();
-        }
-        
-        File outputFile = new File(outputDir, OUTPUT_FILE_NAME);
-        try (FileWriter writer = new FileWriter(outputFile)) {
-            writer.write(analysisResult.toString());
-        }
-        
-        log.info("=== Representation Analysis Complete ===");
-        log.info("Resources analyzed: " + handlerCount);
-        log.info("Output written to: " + outputFile.getAbsolutePath());
-        log.info("File size: " + outputFile.length() + " bytes");
-        
-        int successCount = 0;
-        int errorCount = 0;
-        for (DelegatingResourceHandler<?> handler : handlers) {
-            if (handler.getClass().getAnnotation(Resource.class) != null) {
-                successCount++;
-            } else {
-                errorCount++;
+            RestService restService = Context.getService(RestService.class);
+            assertNotNull("RestService should be available", restService);
+            assertNotNull("Resource handlers should be available", restService.getResourceHandlers());
+            
+            Collection<DelegatingResourceHandler<?>> handlers = restService.getResourceHandlers();
+            int handlerCount = handlers.size();
+            log.info("Resource handlers found: " + handlerCount);
+            
+            if (handlerCount == 0) {
+                log.warn("No resource handlers found. This may indicate a configuration issue.");
+                log.warn("Available services: {}", Context.getRegisteredComponents(Object.class).size());
             }
+            
+            assertFalse("Should have at least one resource handler", handlers.isEmpty());
+            
+            ObjectMapper mapper = new ObjectMapper();
+            ObjectNode jsonOutput = mapper.createObjectNode();
+            
+            ObjectNode metadata = createMetadata(mapper, handlerCount);
+            jsonOutput.set("metadata", metadata);
+            
+            ArrayNode resourcesArray = mapper.createArrayNode();
+            for (DelegatingResourceHandler<?> handler : handlers) {
+                ObjectNode resourceNode = analyzeResourceHandlerAsJson(mapper, handler);
+                resourcesArray.add(resourceNode);
+            }
+            
+            jsonOutput.put("resourceCount", handlerCount);
+            jsonOutput.set("resources", resourcesArray);
+            
+            writeJsonToFile(mapper, jsonOutput, handlerCount);
+            
+            File outputFile = new File(new File(OUTPUT_DIR), OUTPUT_FILE_NAME);
+            assertTrue("Output file should exist", outputFile.exists());
+            assertTrue("Output file should not be empty", outputFile.length() > 0);
+            
+        } catch (IllegalStateException e) {
+            log.error("OpenMRS context is not properly initialized: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to analyze representations due to context initialization error", e);
+            
+        } catch (SecurityException e) {
+            log.error("Security error accessing REST services: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to analyze representations due to security restrictions", e);
+            
+        } catch (IOException e) {
+            log.error("I/O error during analysis: {}", e.getMessage(), e);
+            throw e; 
+            
+        } catch (RuntimeException e) {
+            log.error("Unexpected runtime error during analysis: {}", e.getMessage(), e);
+            throw e; 
         }
-        
-        log.info("Analysis summary: {} successful, {} errors", successCount, errorCount);
-        log.info("=========================================");
-        
-        assertTrue("Output file should exist", outputFile.exists());
-        assertTrue("Output file should not be empty", outputFile.length() > 0);
     }
-
-    private String analyzeResourceHandler(DelegatingResourceHandler<?> handler) {
-        StringBuilder result = new StringBuilder();
+    
+    private ObjectNode createMetadata(ObjectMapper mapper, int handlerCount) {
+        ObjectNode metadata = mapper.createObjectNode();
+        metadata.put("timestamp", java.time.Instant.now().toString());
+        metadata.put("pluginVersion", "1.0.0-SNAPSHOT");
+        metadata.put("linksExcluded", true);
+        
+        ObjectNode config = mapper.createObjectNode();
+        config.put("outputFile", OUTPUT_FILE_NAME);
+        config.put("outputDir", OUTPUT_DIR);
+        metadata.set("configuration", config);
+        
+        return metadata;
+    }
+    
+    private ObjectNode analyzeResourceHandlerAsJson(ObjectMapper mapper, DelegatingResourceHandler<?> handler) {
+        ObjectNode resourceNode = mapper.createObjectNode();
         
         try {
             Resource resourceAnnotation = handler.getClass().getAnnotation(Resource.class);
             
             if (resourceAnnotation != null) {
-                result.append("      \"resourceName\": \"").append(resourceAnnotation.name()).append("\",\n");
-                result.append("      \"supportedClass\": \"").append(resourceAnnotation.supportedClass().getSimpleName()).append("\",\n");
-                result.append("      \"handlerClass\": \"").append(handler.getClass().getSimpleName()).append("\",\n");
-                result.append("      \"handlerPackage\": \"").append(handler.getClass().getPackage().getName()).append("\",\n");
-                result.append("      \"supportedVersions\": [");
+                resourceNode.put("resourceName", resourceAnnotation.name());
+                resourceNode.put("supportedClass", resourceAnnotation.supportedClass().getSimpleName());
+                resourceNode.put("handlerClass", handler.getClass().getSimpleName());
+                resourceNode.put("handlerPackage", handler.getClass().getPackage().getName());
                 
-                String[] versions = resourceAnnotation.supportedOpenmrsVersions();
-                for (int i = 0; i < versions.length; i++) {
-                    if (i > 0) result.append(", ");
-                    result.append("\"").append(versions[i]).append("\"");
+                ArrayNode versionsArray = mapper.createArrayNode();
+                for (String version : resourceAnnotation.supportedOpenmrsVersions()) {
+                    versionsArray.add(version);
                 }
-                result.append("],\n");
+                resourceNode.set("supportedVersions", versionsArray);
                 
-                result.append("      \"representations\": {\n");
-                result.append(analyzeRepresentations(handler));
-                result.append("      }\n");
+                ObjectNode representations = analyzeRepresentationsAsJson(mapper, handler);
+                resourceNode.set("representations", representations);
                 
             } else {
-                result.append("      \"error\": \"No @Resource annotation found\",\n");
-                result.append("      \"className\": \"").append(handler.getClass().getName()).append("\"\n");
+                resourceNode.put("error", "No @Resource annotation found");
+                resourceNode.put("className", handler.getClass().getName());
             }
             
-        } catch (Exception e) {
-            log.warn("Error analyzing handler " + handler.getClass().getSimpleName() + ": " + e.getMessage());
-            result.append("      \"error\": \"").append(e.getMessage().replace("\"", "\\\"")).append("\",\n");
-            result.append("      \"className\": \"").append(handler.getClass().getName()).append("\"\n");
+        } catch (SecurityException e) {
+            log.warn("Security error analyzing handler {}: {}", handler.getClass().getSimpleName(), e.getMessage());
+            resourceNode.put("error", e.getMessage());
+            resourceNode.put("errorType", "SecurityException");
+            resourceNode.put("className", handler.getClass().getName());
+            
+        } catch (RuntimeException e) {
+            log.warn("Unexpected error analyzing handler {}: {}", handler.getClass().getSimpleName(), e.getMessage());
+            resourceNode.put("error", e.getMessage());
+            resourceNode.put("errorType", e.getClass().getSimpleName());
+            resourceNode.put("className", handler.getClass().getName());
         }
         
-        return result.toString();
+        return resourceNode;
     }
     
-
-    private String analyzeRepresentations(DelegatingResourceHandler<?> handler) {
-        StringBuilder result = new StringBuilder();
+    private ObjectNode analyzeRepresentationsAsJson(ObjectMapper mapper, DelegatingResourceHandler<?> handler) {
+        ObjectNode representations = mapper.createObjectNode();
         
-        result.append("        \"DEFAULT\": ");
-        try {
-            DelegatingResourceDescription defaultRep = handler.getRepresentationDescription(Representation.DEFAULT);
-            result.append(analyzeRepresentationDescription(defaultRep));
-        } catch (Exception e) {
-            result.append("{\"error\": \"").append(e.getMessage().replace("\"", "\\\"")).append("\"}");
-        }
-        result.append(",\n");
+        representations.set("DEFAULT", analyzeSpecificRepresentationAsJson(mapper, handler, Representation.DEFAULT));
+        representations.set("FULL", analyzeSpecificRepresentationAsJson(mapper, handler, Representation.FULL));
+        representations.set("REF", analyzeSpecificRepresentationAsJson(mapper, handler, Representation.REF));
         
-        result.append("        \"FULL\": ");
-        try {
-            DelegatingResourceDescription fullRep = handler.getRepresentationDescription(Representation.FULL);
-            result.append(analyzeRepresentationDescription(fullRep));
-        } catch (Exception e) {
-            result.append("{\"error\": \"").append(e.getMessage().replace("\"", "\\\"")).append("\"}");
-        }
-        result.append(",\n");
-        
-        result.append("        \"REF\": ");
-        try {
-            DelegatingResourceDescription refRep = handler.getRepresentationDescription(Representation.REF);
-            result.append(analyzeRepresentationDescription(refRep));
-        } catch (Exception e) {
-            result.append("{\"error\": \"").append(e.getMessage().replace("\"", "\\\"")).append("\"}");
-        }
-        result.append("\n");
-        
-        return result.toString();
+        return representations;
     }
     
-
-    private String analyzeRepresentationDescription(DelegatingResourceDescription description) {
+    private ObjectNode analyzeSpecificRepresentationAsJson(ObjectMapper mapper, DelegatingResourceHandler<?> handler, Representation representation) {
+        try {
+            DelegatingResourceDescription description = handler.getRepresentationDescription(representation);
+            return analyzeRepresentationDescriptionAsJson(mapper, description);
+            
+        } catch (UnsupportedOperationException e) {
+            ObjectNode errorNode = mapper.createObjectNode();
+            errorNode.put("error", "Representation not supported");
+            errorNode.put("errorType", "UnsupportedOperationException");
+            return errorNode;
+            
+        } catch (IllegalArgumentException e) {
+            log.debug("Invalid argument for {} representation in {}: {}", 
+                    representation.getRepresentation(), handler.getClass().getSimpleName(), e.getMessage());
+            ObjectNode errorNode = mapper.createObjectNode();
+            errorNode.put("error", e.getMessage());
+            errorNode.put("errorType", "IllegalArgumentException");
+            return errorNode;
+            
+        } catch (IllegalStateException e) {
+            log.debug("Invalid state for {} representation in {}: {}", 
+                    representation.getRepresentation(), handler.getClass().getSimpleName(), e.getMessage());
+            ObjectNode errorNode = mapper.createObjectNode();
+            errorNode.put("error", e.getMessage());
+            errorNode.put("errorType", "IllegalStateException");
+            return errorNode;
+            
+        } catch (RuntimeException e) {
+            log.warn("Unexpected error getting {} representation for {}: {}", 
+                    representation.getRepresentation(), handler.getClass().getSimpleName(), e.getMessage());
+            ObjectNode errorNode = mapper.createObjectNode();
+            errorNode.put("error", e.getMessage());
+            errorNode.put("errorType", e.getClass().getSimpleName());
+            return errorNode;
+        }
+    }
+    
+    private ObjectNode analyzeRepresentationDescriptionAsJson(ObjectMapper mapper, DelegatingResourceDescription description) {
         if (description == null) {
-            return "null";
+            return null;
         }
         
         try {
-            int propertyCount = 0;
-            int linkCount = 0;
+            int propertyCount = (description.getProperties() != null) ? description.getProperties().size() : 0;
+            int linkCount = (description.getLinks() != null) ? description.getLinks().size() : 0;
             
-            if (description.getProperties() != null) {
-                propertyCount = description.getProperties().size();
-            }
+            ObjectNode repNode = mapper.createObjectNode();
+            repNode.put("propertyCount", propertyCount);
+            repNode.put("linkCount", linkCount);
             
-            if (description.getLinks() != null) {
-                linkCount = description.getLinks().size();
-            }
+            return repNode;
             
-            StringBuilder result = new StringBuilder();
-            result.append("{");
-            result.append("\"propertyCount\": ").append(propertyCount);
-            result.append(", \"linkCount\": ").append(linkCount);
-            result.append(", \"linksExcluded\": true");
-            result.append("}");
+        } catch (IllegalStateException e) {
+            log.debug("Invalid state accessing representation description: {}", e.getMessage());
+            ObjectNode errorNode = mapper.createObjectNode();
+            errorNode.put("error", e.getMessage());
+            errorNode.put("errorType", "IllegalStateException");
+            return errorNode;
             
-            return result.toString();
-            
-        } catch (Exception e) {
-            return "{\"error\": \"" + e.getMessage().replace("\"", "\\\"") + "\"}";
+        } catch (RuntimeException e) {
+            log.warn("Unexpected error analyzing representation description: {}", e.getMessage());
+            ObjectNode errorNode = mapper.createObjectNode();
+            errorNode.put("error", e.getMessage());
+            errorNode.put("errorType", e.getClass().getSimpleName());
+            return errorNode;
         }
+    }
+    
+    private void writeJsonToFile(ObjectMapper mapper, ObjectNode jsonOutput, int handlerCount) throws IOException {
+        File outputDir = new File(OUTPUT_DIR);
+        
+        try {
+            if (!outputDir.exists()) {
+                boolean created = outputDir.mkdirs();
+                if (!created) {
+                    throw new IOException("Failed to create output directory: " + outputDir.getAbsolutePath());
+                }
+            }
+            
+            File outputFile = new File(outputDir, OUTPUT_FILE_NAME);
+            
+            try {
+                mapper.writerWithDefaultPrettyPrinter().writeValue(outputFile, jsonOutput);
+                
+                log.info("=== Representation Analysis Complete ===");
+                log.info("Resources analyzed: {}", handlerCount);
+                log.info("Output written to: {}", outputFile.getAbsolutePath());
+                log.info("File size: {} bytes", outputFile.length());
+                
+                logAnalysisSummary(handlerCount);
+                
+            } catch (SecurityException e) {
+                log.error("Permission denied writing to file: {}", outputFile.getAbsolutePath());
+                throw new IOException("Permission denied writing analysis file", e);
+                
+            } catch (IOException e) {
+                log.error("I/O error writing analysis file: {}", e.getMessage());
+                throw e;
+            }
+            
+        } catch (SecurityException e) {
+            log.error("Security error accessing output directory: {}", outputDir.getAbsolutePath());
+            throw new IOException("Security restrictions prevent file creation", e);
+        }
+    }
+    
+    private void logAnalysisSummary(int handlerCount) {
+        log.info("Analysis summary: {} total handlers processed", handlerCount);
+        log.info("=========================================");
     }
 }
