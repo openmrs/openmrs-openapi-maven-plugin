@@ -1,0 +1,118 @@
+{
+  "openapi" : "3.0.1",
+  "info" : {
+    "title" : "OpenMRS REST API",
+    "description" : "Generated OpenAPI specification for OpenMRS REST resources",
+    "version" : "1.0.0"
+  },
+  "components" : {
+    "schemas" : {
+      "v1/relationshiptype" : {
+        "type" : "object",
+        "properties" : {
+          "display" : {
+            "type" : "object",
+            "description" : "display",
+            "exampleSetFlag" : false
+          },
+          "description" : {
+            "type" : "object",
+            "description" : "description",
+            "exampleSetFlag" : false
+          },
+          "displayBIsToA" : {
+            "type" : "object",
+            "description" : "displayBIsToA",
+            "exampleSetFlag" : false
+          },
+          "retired" : {
+            "type" : "object",
+            "description" : "retired",
+            "exampleSetFlag" : false
+          },
+          "aIsToB" : {
+            "type" : "object",
+            "description" : "aIsToB",
+            "exampleSetFlag" : false
+          },
+          "uuid" : {
+            "type" : "object",
+            "description" : "uuid",
+            "exampleSetFlag" : false
+          },
+          "bIsToA" : {
+            "type" : "object",
+            "description" : "bIsToA",
+            "exampleSetFlag" : false
+          },
+          "displayAIsToB" : {
+            "type" : "object",
+            "description" : "displayAIsToB",
+            "exampleSetFlag" : false
+          }
+        },
+        "description" : "Schema for v1/relationshiptype resource",
+        "exampleSetFlag" : false
+      },
+      "v1/taskdefinition" : {
+        "type" : "object",
+        "properties" : {
+          "name" : {
+            "type" : "object",
+            "description" : "name",
+            "exampleSetFlag" : false
+          },
+          "description" : {
+            "type" : "object",
+            "description" : "description",
+            "exampleSetFlag" : false
+          },
+          "taskClass" : {
+            "type" : "object",
+            "description" : "taskClass",
+            "exampleSetFlag" : false
+          },
+          "startTime" : {
+            "type" : "object",
+            "description" : "startTime",
+            "exampleSetFlag" : false
+          },
+          "started" : {
+            "type" : "object",
+            "description" : "started",
+            "exampleSetFlag" : false
+          },
+          "uuid" : {
+            "type" : "object",
+            "description" : "uuid",
+            "exampleSetFlag" : false
+          }
+        },
+        "description" : "Schema for v1/taskdefinition resource",
+        "exampleSetFlag" : false
+      },
+      "v1/conceptsearch" : {
+        "type" : "object",
+        "properties" : {
+          "conceptName" : {
+            "type" : "string",
+            "description" : "conceptName",
+            "exampleSetFlag" : false
+          },
+          "display" : {
+            "type" : "object",
+            "description" : "display",
+            "exampleSetFlag" : false
+          },
+          "concept" : {
+            "type" : "string",
+            "description" : "concept",
+            "exampleSetFlag" : false
+          }
+        },
+        "description" : "Schema for v1/conceptsearch resource",
+        "exampleSetFlag" : false
+      }
+    }
+  }
+}

@@ -1,3 +1,2 @@
 org\openmrs\plugin\rest\analyzer\test\RepresentationAnalyzerTest.class
-org\openmrs\plugin\rest\analyzer\test\RestContextTest.class
-org\openmrs\plugin\rest\analyzer\test\SimpleDemo.class
+org\openmrs\plugin\rest\analyzer\test\OpenApiGeneratorTest.class

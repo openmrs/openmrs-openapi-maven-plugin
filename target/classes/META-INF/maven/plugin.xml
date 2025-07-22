@@ -15,13 +15,6 @@
   <mojos>
     <mojo>
       <goal>analyze-representations</goal>
-      <description>Maven plugin that analyzes OpenMRS REST resource representations at build time.
-
-Uses a two-phase approach:
-1. Runs a JUnit test with full OpenMRS context to analyze resources
-2. Processes the analysis results and generates output
-
-Phase 1 Implementation: Basic plugin structure</description>
       <requiresDependencyResolution>test</requiresDependencyResolution>
       <requiresDirectInvocation>false</requiresDirectInvocation>
       <requiresProject>true</requiresProject>
@@ -36,13 +29,6 @@ Phase 1 Implementation: Basic plugin structure</description>
       <executionStrategy>once-per-session</executionStrategy>
       <threadSafe>false</threadSafe>
       <parameters>
-        <parameter>
-          <name>generateReport</name>
-          <type>boolean</type>
-          <required>false</required>
-          <editable>true</editable>
-          <description></description>
-        </parameter>
         <parameter>
           <name>outputDirectory</name>
           <type>java.lang.String</type>
@@ -64,12 +50,19 @@ Phase 1 Implementation: Basic plugin structure</description>
           <editable>false</editable>
           <description></description>
         </parameter>
+        <parameter>
+          <name>timeoutSeconds</name>
+          <type>int</type>
+          <required>false</required>
+          <editable>true</editable>
+          <description></description>
+        </parameter>
       </parameters>
       <configuration>
-        <generateReport implementation="boolean" default-value="true">${generateReport}</generateReport>
         <outputDirectory implementation="java.lang.String" default-value="${project.build.directory}/representation-analysis">${outputDirectory}</outputDirectory>
         <outputFile implementation="java.lang.String" default-value="representation-analysis.json">${outputFile}</outputFile>
         <project implementation="org.apache.maven.project.MavenProject" default-value="${project}"/>
+        <timeoutSeconds implementation="int" default-value="300">${timeoutSeconds}</timeoutSeconds>
       </configuration>
     </mojo>
   </mojos>
@@ -228,7 +221,7 @@ Phase 1 Implementation: Basic plugin structure</description>
       <groupId>org.openmrs.api</groupId>
       <artifactId>openmrs-api</artifactId>
       <type>jar</type>
-      <version>2.4.6-20250701.173825-22</version>
+      <version>2.4.6-20250721.211108-24</version>
     </dependency>
     <dependency>
       <groupId>commons-collections</groupId>
@@ -762,7 +755,7 @@ Phase 1 Implementation: Basic plugin structure</description>
       <groupId>org.openmrs.web</groupId>
       <artifactId>openmrs-web</artifactId>
       <type>jar</type>
-      <version>2.4.6-20250701.173825-22</version>
+      <version>2.4.6-20250721.211108-24</version>
     </dependency>
     <dependency>
       <groupId>javax.servlet</groupId>
@@ -921,18 +914,6 @@ Phase 1 Implementation: Basic plugin structure</description>
       <version>1.6.2</version>
     </dependency>
     <dependency>
-      <groupId>com.fasterxml.jackson.dataformat</groupId>
-      <artifactId>jackson-dataformat-yaml</artifactId>
-      <type>jar</type>
-      <version>2.11.1</version>
-    </dependency>
-    <dependency>
-      <groupId>org.yaml</groupId>
-      <artifactId>snakeyaml</artifactId>
-      <type>jar</type>
-      <version>1.26</version>
-    </dependency>
-    <dependency>
       <groupId>io.swagger</groupId>
       <artifactId>swagger-models</artifactId>
       <type>jar</type>
@@ -1009,6 +990,48 @@ Phase 1 Implementation: Basic plugin structure</description>
       <artifactId>slf4j-api</artifactId>
       <type>jar</type>
       <version>1.7.32</version>
+    </dependency>
+    <dependency>
+      <groupId>io.swagger.core.v3</groupId>
+      <artifactId>swagger-models</artifactId>
+      <type>jar</type>
+      <version>2.2.15</version>
+    </dependency>
+    <dependency>
+      <groupId>io.swagger.core.v3</groupId>
+      <artifactId>swagger-core</artifactId>
+      <type>jar</type>
+      <version>2.2.15</version>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.dataformat</groupId>
+      <artifactId>jackson-dataformat-yaml</artifactId>
+      <type>jar</type>
+      <version>2.15.1</version>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.datatype</groupId>
+      <artifactId>jackson-datatype-jsr310</artifactId>
+      <type>jar</type>
+      <version>2.15.1</version>
+    </dependency>
+    <dependency>
+      <groupId>io.swagger.core.v3</groupId>
+      <artifactId>swagger-annotations</artifactId>
+      <type>jar</type>
+      <version>2.2.15</version>
+    </dependency>
+    <dependency>
+      <groupId>org.yaml</groupId>
+      <artifactId>snakeyaml</artifactId>
+      <type>jar</type>
+      <version>2.0</version>
+    </dependency>
+    <dependency>
+      <groupId>jakarta.validation</groupId>
+      <artifactId>jakarta.validation-api</artifactId>
+      <type>jar</type>
+      <version>2.0.2</version>
     </dependency>
   </dependencies>
 </plugin>

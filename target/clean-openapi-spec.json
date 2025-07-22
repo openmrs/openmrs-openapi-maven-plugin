@@ -1,0 +1,129 @@
+{
+  "openapi" : "3.0.1",
+  "info" : {
+    "title" : "OpenMRS REST API",
+    "version" : "1.0.0",
+    "description" : "Generated OpenAPI specification for OpenMRS REST resources"
+  },
+  "components" : {
+    "schemas" : {
+      "v1/ordertype" : {
+        "type" : "object",
+        "description" : "Schema for v1/ordertype resource",
+        "properties" : {
+          "uuid" : {
+            "type" : "string",
+            "description" : "uuid"
+          },
+          "display" : {
+            "type" : "string",
+            "description" : "display"
+          },
+          "name" : {
+            "type" : "string",
+            "description" : "name"
+          },
+          "javaClassName" : {
+            "type" : "string",
+            "description" : "javaClassName"
+          },
+          "retired" : {
+            "type" : "boolean",
+            "description" : "retired"
+          },
+          "description" : {
+            "type" : "string",
+            "description" : "description"
+          },
+          "conceptClasses" : {
+            "type" : "string",
+            "description" : "conceptClasses"
+          },
+          "parent" : {
+            "type" : "string",
+            "description" : "parent"
+          }
+        }
+      },
+      "v1/encounter" : {
+        "type" : "object",
+        "description" : "Schema for v1/encounter resource",
+        "properties" : {
+          "uuid" : {
+            "type" : "string",
+            "description" : "uuid"
+          },
+          "display" : {
+            "type" : "string",
+            "description" : "display"
+          },
+          "encounterDatetime" : {
+            "type" : "string",
+            "description" : "encounterDatetime"
+          },
+          "patient" : {
+            "type" : "string",
+            "description" : "patient"
+          },
+          "location" : {
+            "type" : "string",
+            "description" : "location"
+          },
+          "form" : {
+            "type" : "string",
+            "description" : "form"
+          },
+          "encounterType" : {
+            "type" : "string",
+            "description" : "encounterType"
+          },
+          "obs" : {
+            "type" : "string",
+            "description" : "obs"
+          },
+          "orders" : {
+            "type" : "string",
+            "description" : "orders"
+          },
+          "voided" : {
+            "type" : "boolean",
+            "description" : "voided"
+          },
+          "visit" : {
+            "type" : "string",
+            "description" : "visit"
+          },
+          "encounterProviders" : {
+            "type" : "string",
+            "description" : "encounterProviders"
+          },
+          "diagnoses" : {
+            "type" : "array",
+            "description" : "diagnoses",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
+      "v1/conceptsearch" : {
+        "type" : "object",
+        "description" : "Schema for v1/conceptsearch resource",
+        "properties" : {
+          "display" : {
+            "type" : "string",
+            "description" : "display"
+          },
+          "concept" : {
+            "type" : "string",
+            "description" : "concept"
+          },
+          "conceptName" : {
+            "type" : "string",
+            "description" : "conceptName"
+          }
+        }
+      }
+    }
+  }
+}

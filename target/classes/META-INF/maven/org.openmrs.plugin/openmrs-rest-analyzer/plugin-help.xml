@@ -12,7 +12,6 @@
   <mojos>
     <mojo>
       <goal>analyze-representations</goal>
-      <description>Maven plugin that analyzes OpenMRS REST resource representations at build time. Uses a two-phase approach: 1. Runs a JUnit test with full OpenMRS context to analyze resources 2. Processes the analysis results and generates output Phase 1 Implementation: Basic plugin structure</description>
       <requiresDependencyResolution>test</requiresDependencyResolution>
       <requiresDirectInvocation>false</requiresDirectInvocation>
       <requiresProject>true</requiresProject>
@@ -28,13 +27,6 @@
       <threadSafe>false</threadSafe>
       <parameters>
         <parameter>
-          <name>generateReport</name>
-          <type>boolean</type>
-          <required>false</required>
-          <editable>true</editable>
-          <description></description>
-        </parameter>
-        <parameter>
           <name>outputDirectory</name>
           <type>java.lang.String</type>
           <required>false</required>
@@ -48,11 +40,18 @@
           <editable>true</editable>
           <description></description>
         </parameter>
+        <parameter>
+          <name>timeoutSeconds</name>
+          <type>int</type>
+          <required>false</required>
+          <editable>true</editable>
+          <description></description>
+        </parameter>
       </parameters>
       <configuration>
-        <generateReport implementation="boolean" default-value="true">${generateReport}</generateReport>
         <outputDirectory implementation="java.lang.String" default-value="${project.build.directory}/representation-analysis">${outputDirectory}</outputDirectory>
         <outputFile implementation="java.lang.String" default-value="representation-analysis.json">${outputFile}</outputFile>
+        <timeoutSeconds implementation="int" default-value="300">${timeoutSeconds}</timeoutSeconds>
       </configuration>
     </mojo>
   </mojos>

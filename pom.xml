@@ -71,6 +71,21 @@
             <version>${junit.version}</version>
         </dependency>
 
+        <!-- JUnit 5 for modern test framework -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <version>5.8.2</version>
+            <scope>test</scope>
+        </dependency>
+        
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+            <version>5.8.2</version>
+            <scope>test</scope>
+        </dependency>
+
         <!-- OpenMRS Core Dependencies -->
         <dependency>
             <groupId>org.openmrs.api</groupId>
@@ -158,6 +173,19 @@
             <groupId>javax.servlet</groupId>
             <artifactId>javax.servlet-api</artifactId>
         </dependency>
+        
+        <!-- OpenAPI 3.0 for modern spec generation -->
+        <dependency>
+            <groupId>io.swagger.core.v3</groupId>
+            <artifactId>swagger-models</artifactId>
+            <version>2.2.15</version>
+        </dependency>
+        
+        <dependency>
+            <groupId>io.swagger.core.v3</groupId>
+            <artifactId>swagger-core</artifactId>
+            <version>2.2.15</version>
+        </dependency>
     </dependencies>
 
     <build>
@@ -197,6 +225,14 @@
                         <databasePassword></databasePassword>
                     </systemPropertyVariables>
                 </configuration>
+                <dependencies>
+                    <!-- JUnit 5 vintage engine for JUnit 4 compatibility -->
+                    <dependency>
+                        <groupId>org.junit.vintage</groupId>
+                        <artifactId>junit-vintage-engine</artifactId>
+                        <version>5.8.2</version>
+                    </dependency>
+                </dependencies>
             </plugin>
         </plugins>
     </build>
