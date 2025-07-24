@@ -15,18 +15,25 @@ import org.openmrs.web.test.jupiter.BaseModuleWebContextSensitiveTest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.swagger.v3.oas.models.OpenAPI;
-import io.swagger.v3.oas.models.info.Info;
-import io.swagger.v3.oas.models.Components;
-import io.swagger.v3.oas.models.media.Schema;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.fasterxml.jackson.annotation.JsonInclude;
 
 import java.util.Collection;
 import java.util.Map;
+import java.util.HashMap;
+import java.util.List;
+import java.util.ArrayList;
 import java.io.File;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.lang.reflect.Type;
+import java.lang.reflect.ParameterizedType;
+import java.beans.PropertyDescriptor;
+import java.beans.Introspector;
+import java.beans.IntrospectionException;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -50,30 +57,6 @@ public class OpenApiGeneratorTest extends BaseModuleWebContextSensitiveTest {
         
         Context.flushSession();
         log.info("=== Setup Complete ===");
-    }
-
-    @Test
-    @DisplayName("Basic OpenAPI 3.0 structure creation")
-    public void testBasicOpenAPIStructure() throws Exception {
-        log.info("=== Testing Basic OpenAPI 3.0 Structure Creation ===");
-        
-        OpenAPI openAPI = new OpenAPI();
-        openAPI.info(new Info()
-            .title("OpenMRS REST API") 
-            .version("1.0.0")
-            .description("Generated OpenAPI specification for OpenMRS REST resources"));
-            
-        openAPI.components(new Components());
-        
-        // Verify basic structure
-        assertNotNull(openAPI.getInfo(), "OpenAPI info should not be null");
-        assertNotNull(openAPI.getComponents(), "OpenAPI components should not be null");
-        assertEquals("OpenMRS REST API", openAPI.getInfo().getTitle());
-        
-        log.info("✓ Basic OpenAPI 3.0 structure created successfully");
-        log.info("  Title: {}", openAPI.getInfo().getTitle());
-        log.info("  Version: {}", openAPI.getInfo().getVersion());
-        log.info("=== Basic OpenAPI Structure Test Complete ===");
     }
 
     @Test
@@ -126,9 +109,6 @@ public class OpenApiGeneratorTest extends BaseModuleWebContextSensitiveTest {
                     log.info("Property '{}': detected type = '{}', required = {}", 
                         propertyName, detectedType, property.isRequired());
                     
-                    // Log detailed property analysis
-                    logPropertyDetails(propertyName, property);
-                    
                     count++;
                 }
             } else {
@@ -146,18 +126,15 @@ public class OpenApiGeneratorTest extends BaseModuleWebContextSensitiveTest {
         // Strategy 1: Check explicit conversion class
         if (property.getConvertAs() != null) {
             String type = mapJavaTypeToOpenApi(property.getConvertAs());
-            log.debug("Type from convertAs: {} -> {}", property.getConvertAs().getSimpleName(), type);
             return type;
         }
         
         // Strategy 2: Check representation level
         if (property.getRep() != null) {
             if (property.getRep() == Representation.REF) {
-                log.debug("Type from REF representation -> string (reference)");
                 return "string"; // REF usually returns uuid/display
             }
             if (property.getRep() == Representation.FULL || property.getRep() == Representation.DEFAULT) {
-                log.debug("Type from {} representation -> object", property.getRep().getRepresentation());
                 return "object"; // Full nested object
             }
         }
@@ -165,13 +142,11 @@ public class OpenApiGeneratorTest extends BaseModuleWebContextSensitiveTest {
         // Strategy 3: Check method return type
         if (property.getMethod() != null) {
             String type = mapJavaTypeToOpenApi(property.getMethod().getReturnType());
-            log.debug("Type from method: {} -> {}", property.getMethod().getReturnType().getSimpleName(), type);
             return type;
         }
         
         // Strategy 4: Heuristic based on property name
         String type = guessTypeFromPropertyName(property.getDelegateProperty());
-        log.debug("Type from name heuristic: '{}' -> {}", property.getDelegateProperty(), type);
         return type;
     }
     
@@ -223,288 +198,138 @@ public class OpenApiGeneratorTest extends BaseModuleWebContextSensitiveTest {
         // Default
         return "string";
     }
-    
-    private void logPropertyDetails(String propertyName, DelegatingResourceDescription.Property property) {
-        log.debug("=== Property Details: {} ===", propertyName);
-        log.debug("  Delegate Property: {}", property.getDelegateProperty());
-        log.debug("  Method: {}", property.getMethod() != null ? property.getMethod().getName() : "null");
-        log.debug("  Representation: {}", property.getRep() != null ? property.getRep().getRepresentation() : "null");
-        log.debug("  Convert As: {}", property.getConvertAs() != null ? property.getConvertAs().getSimpleName() : "null");
-        log.debug("  Required: {}", property.isRequired());
-    }
-    
+
     /**
-     * Step 4: Create a simple OpenAPI schema for a single property
+     * HYBRID APPROACH: Representation Analysis + Schema Introspection
+     * This is what you wanted - combine representation-based analysis with robust type detection
      */
     @Test
-    @DisplayName("Single property OpenAPI schema generation")
-    public void testSinglePropertySchemaGeneration() {
-        log.info("=== Testing Single Property OpenAPI Schema Generation ===");
+    @DisplayName("Generate OpenAPI with representation analysis and robust type introspection")
+    public void testGenerateOpenApiWithHybridApproach() throws Exception {
+        log.info("=== Generating OpenAPI with Hybrid Approach ===");
         
         RestService restService = Context.getService(RestService.class);
-        Collection<DelegatingResourceHandler<?>> resourceHandlers = restService.getResourceHandlers();
-        DelegatingResourceHandler<?> firstResource = resourceHandlers.iterator().next();
+        Collection<DelegatingResourceHandler<?>> handlers = restService.getResourceHandlers();
         
-        Resource resourceAnnotation = firstResource.getClass().getAnnotation(Resource.class);
-        String resourceName = resourceAnnotation.name();
-        log.info("Creating schema for resource: {}", resourceName);
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.enable(SerializationFeature.INDENT_OUTPUT);
         
-        DelegatingResourceDescription description = firstResource.getRepresentationDescription(Representation.DEFAULT);
-        Map<String, DelegatingResourceDescription.Property> properties = description.getProperties();
+        ObjectNode jsonOutput = mapper.createObjectNode();
+        ObjectNode openApiSpec = createBaseOpenApiStructure(mapper);
+        ObjectNode schemas = openApiSpec.with("components").with("schemas");
         
-        // Create an OpenAPI schema for the first property as proof of concept
-        Map.Entry<String, DelegatingResourceDescription.Property> firstProperty = properties.entrySet().iterator().next();
-        String propertyName = firstProperty.getKey();
-        DelegatingResourceDescription.Property property = firstProperty.getValue();
+        ArrayNode resourcesArray = mapper.createArrayNode();
         
-        Schema<?> propertySchema = createSimplePropertySchema(property);
-        
-        assertNotNull(propertySchema, "Property schema should not be null");
-        assertNotNull(propertySchema.getType(), "Property schema should have a type");
-        
-        log.info("✓ Generated OpenAPI schema for property '{}'", propertyName);
-        log.info("  Type: {}", propertySchema.getType());
-        log.info("  Description: {}", propertySchema.getDescription());
-        log.info("=== Single Property Schema Generation Test Complete ===");
-    }
-    
-    /**
-     * Create a simple OpenAPI schema for a single property using modern methods
-     */
-    private Schema<?> createSimplePropertySchema(DelegatingResourceDescription.Property property) {
-        Schema<Object> schema = new Schema<>();
-        
-        // Only set essential fields - let Jackson ignore nulls
-        String openApiType = detectPropertyType(property);
-        schema.setType(openApiType);
-        
-        // Set a basic description only if we have delegate property info
-        if (property.getDelegateProperty() != null) {
-            String description = "Property: " + property.getDelegateProperty();
-            if (property.isRequired()) {
-                description += " (Required)";
-            } else {
-                description += " (Optional)";
-            }
-            schema.setDescription(description);
-        }
-        
-        return schema;
-    }
-    
-    /**
-     * Create a minimalist clean schema - only essential fields
-     */
-    private Schema<?> createCleanPropertySchema(DelegatingResourceDescription.Property property) {
-        Schema<Object> schema = new Schema<>();
-        
-        // Only set the absolute essentials
-        String openApiType = detectPropertyType(property);
-        schema.setType(openApiType);
-        
-        // Debug logging to see what's happening
-        String propertyName = property.getDelegateProperty();
-        log.info("Property '{}': detected type '{}', convertAs={}, method={}, rep={}", 
-            propertyName, openApiType, 
-            property.getConvertAs() != null ? property.getConvertAs().getSimpleName() : "null",
-            property.getMethod() != null ? property.getMethod().getReturnType().getSimpleName() : "null",
-            property.getRep() != null ? property.getRep().getRepresentation() : "null");
-        
-        // Add description only if meaningful
-        if (propertyName != null) {
-            schema.setDescription(propertyName);
-        }
-        
-        // Handle array items
-        if ("array".equals(openApiType)) {
-            Schema<Object> itemSchema = new Schema<>();
-            itemSchema.setType("string"); // Default item type
-            schema.setItems(itemSchema);
-        }
-        
-        return schema;
-    }
-    
-    /**
-     * Step 5: Generate and save complete OpenAPI spec to file
-     */
-    @Test
-    @DisplayName("Generate complete OpenAPI specification file")
-    public void testGenerateCompleteOpenApiSpec() throws Exception {
-        log.info("=== Generating Complete OpenAPI Specification ===");
-        
-        RestService restService = Context.getService(RestService.class);
-        Collection<DelegatingResourceHandler<?>> resourceHandlers = restService.getResourceHandlers();
-        
-        // Create base OpenAPI structure
-        OpenAPI openAPI = new OpenAPI();
-        openAPI.info(new Info()
-            .title("OpenMRS REST API")
-            .version("1.0.0")
-            .description("Generated OpenAPI specification for OpenMRS REST resources"));
-        openAPI.components(new Components());
-        
-        // Add schemas for first few resources
-        int resourceCount = 0;
-        for (DelegatingResourceHandler<?> handler : resourceHandlers) {
-            if (resourceCount >= 3) break; // Limit for controlled output
+        int processedCount = 0;
+        for (DelegatingResourceHandler<?> handler : handlers) {
+            if (processedCount >= 5) break; // Limit for controlled testing
             
-            Resource resourceAnnotation = handler.getClass().getAnnotation(Resource.class);
-            if (resourceAnnotation != null) {
-                try {
-                    addResourceSchema(openAPI, handler, resourceAnnotation);
-                    resourceCount++;
-                } catch (Exception e) {
-                    log.warn("Skipping resource {}: {}", resourceAnnotation.name(), e.getMessage());
+            Resource annotation = handler.getClass().getAnnotation(Resource.class);
+            if (annotation != null) {
+                ObjectNode resourceNode = analyzeResourceWithHybridApproach(mapper, handler, schemas);
+                if (resourceNode.has("representations")) {
+                    resourcesArray.add(resourceNode);
+                    processedCount++;
                 }
             }
         }
         
-        // Save to file
-        ObjectMapper mapper = new ObjectMapper();
-        mapper.enable(SerializationFeature.INDENT_OUTPUT);
-        // Configure Jackson to ignore null and empty values for clean output
-        mapper.setSerializationInclusion(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL);
-        mapper.setSerializationInclusion(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_EMPTY);
+        jsonOutput.set("resources", resourcesArray);
         
-        File outputDir = new File("target");
-        if (!outputDir.exists()) {
-            outputDir.mkdirs();
-        }
+        // Write both: enhanced JSON analysis + OpenAPI spec
+        writeJsonToFile(mapper, jsonOutput, "hybrid-representation-analysis.json");
+        writeJsonToFile(mapper, openApiSpec, "hybrid-openapi-spec.json");
         
-        File outputFile = new File(outputDir, "openapi-spec.json");
-        mapper.writeValue(outputFile, openAPI);
-        
-        log.info("✓ Generated OpenAPI specification with {} resource schemas", resourceCount);
-        log.info("✓ Saved to: {}", outputFile.getAbsolutePath());
-        log.info("=== OpenAPI Generation Complete ===");
-        
-        // Verify the file was created
-        assertTrue(outputFile.exists(), "OpenAPI spec file should be created");
-        assertTrue(outputFile.length() > 0, "OpenAPI spec file should not be empty");
+        log.info("✓ Generated hybrid analysis with {} resources", processedCount);
+        log.info("=== Hybrid Approach Complete ===");
     }
     
-    /**
-     * Add a resource schema to the OpenAPI specification
-     */
-    @SuppressWarnings("rawtypes")
-    private void addResourceSchema(OpenAPI openAPI, DelegatingResourceHandler<?> handler, Resource resourceAnnotation) {
-        String resourceName = resourceAnnotation.name();
-        
-        try {
-            DelegatingResourceDescription description = handler.getRepresentationDescription(Representation.DEFAULT);
-            if (description != null && description.getProperties() != null) {
-                
-                Schema<Object> resourceSchema = new Schema<>();
-                resourceSchema.setType("object");
-                resourceSchema.setDescription("Schema for " + resourceName + " resource");
-                
-                // Add properties to schema
-                Map<String, Schema> properties = new java.util.HashMap<>();
-                for (Map.Entry<String, DelegatingResourceDescription.Property> entry : 
-                        description.getProperties().entrySet()) {
-                    
-                    String propertyName = entry.getKey();
-                    DelegatingResourceDescription.Property property = entry.getValue();
-                    
-                    Schema<?> propertySchema = createCleanPropertySchema(property);
-                    properties.put(propertyName, (Schema) propertySchema);
-                }
-                
-                resourceSchema.setProperties(properties);
-                
-                // Add to OpenAPI components
-                if (openAPI.getComponents().getSchemas() == null) {
-                    openAPI.getComponents().setSchemas(new java.util.HashMap<>());
-                }
-                openAPI.getComponents().getSchemas().put(resourceName, resourceSchema);
-                
-                log.info("Added schema for resource '{}' with {} properties", 
-                    resourceName, properties.size());
-                
-            }
-        } catch (UnsupportedOperationException e) {
-            throw new RuntimeException("DEFAULT representation not supported for " + resourceName);
-        }
-    }
-    
-    /**
-     * Step 6: Generate clean, minimal OpenAPI spec manually
-     */
-    @Test
-    @DisplayName("Generate clean minimal OpenAPI specification")
-    public void testGenerateCleanOpenApiSpec() throws Exception {
-        log.info("=== Generating Clean Minimal OpenAPI Specification ===");
-        
-        RestService restService = Context.getService(RestService.class);
-        Collection<DelegatingResourceHandler<?>> resourceHandlers = restService.getResourceHandlers();
-        
-        // Create manual clean structure using Jackson ObjectNode
-        ObjectMapper mapper = new ObjectMapper();
-        mapper.enable(SerializationFeature.INDENT_OUTPUT);
-        
+    private ObjectNode createBaseOpenApiStructure(ObjectMapper mapper) {
         ObjectNode openApiSpec = mapper.createObjectNode();
         openApiSpec.put("openapi", "3.0.1");
         
         ObjectNode info = mapper.createObjectNode();
-        info.put("title", "OpenMRS REST API");
+        info.put("title", "OpenMRS REST API (Hybrid Analysis)");
         info.put("version", "1.0.0");
-        info.put("description", "Generated OpenAPI specification for OpenMRS REST resources");
+        info.put("description", "Generated OpenAPI specification using representation analysis + schema introspection");
         openApiSpec.set("info", info);
         
         ObjectNode components = mapper.createObjectNode();
         ObjectNode schemas = mapper.createObjectNode();
-        
-        // Add schemas for first few resources
-        int resourceCount = 0;
-        for (DelegatingResourceHandler<?> handler : resourceHandlers) {
-            if (resourceCount >= 3) break;
-            
-            Resource resourceAnnotation = handler.getClass().getAnnotation(Resource.class);
-            if (resourceAnnotation != null) {
-                try {
-                    addCleanResourceSchema(schemas, handler, resourceAnnotation, mapper);
-                    resourceCount++;
-                } catch (Exception e) {
-                    log.warn("Skipping resource {}: {}", resourceAnnotation.name(), e.getMessage());
-                }
-            }
-        }
-        
         components.set("schemas", schemas);
         openApiSpec.set("components", components);
         
-        // Save clean output
-        File outputDir = new File("target");
-        if (!outputDir.exists()) {
-            outputDir.mkdirs();
-        }
-        
-        File outputFile = new File(outputDir, "clean-openapi-spec.json");
-        mapper.writeValue(outputFile, openApiSpec);
-        
-        log.info("✓ Generated CLEAN OpenAPI specification with {} resource schemas", resourceCount);
-        log.info("✓ Saved to: {}", outputFile.getAbsolutePath());
-        
-        assertTrue(outputFile.exists(), "Clean OpenAPI spec file should be created");
-        assertTrue(outputFile.length() > 0, "Clean OpenAPI spec file should not be empty");
+        return openApiSpec;
     }
     
-    /**
-     * Add a clean resource schema using manual ObjectNode construction
-     */
-    private void addCleanResourceSchema(ObjectNode schemas, DelegatingResourceHandler<?> handler, 
-            Resource resourceAnnotation, ObjectMapper mapper) {
-        String resourceName = resourceAnnotation.name();
+    private ObjectNode analyzeResourceWithHybridApproach(ObjectMapper mapper, 
+            DelegatingResourceHandler<?> handler, ObjectNode schemas) {
+        
+        ObjectNode resourceNode = mapper.createObjectNode();
+        Resource annotation = handler.getClass().getAnnotation(Resource.class);
+        
+        if (annotation != null) {
+            String resourceName = annotation.name();
+            Class<?> delegateType = getDelegateTypeFromResource(handler); // Schema introspection
+            
+            resourceNode.put("resourceName", resourceName);
+            resourceNode.put("supportedClass", annotation.supportedClass().getSimpleName());
+            
+            if (delegateType != null) {
+                resourceNode.put("delegateType", delegateType.getSimpleName());
+            }
+            
+            // Analyze each representation separately (your original approach)
+            ObjectNode representations = mapper.createObjectNode();
+            
+            // DEFAULT representation
+            ObjectNode defaultRep = analyzeRepresentationWithTypes(mapper, handler, Representation.DEFAULT, delegateType);
+            representations.set("DEFAULT", defaultRep);
+            if (defaultRep.has("properties")) {
+                generateOpenApiSchema(schemas, resourceName + "_DEFAULT", defaultRep, mapper);
+            }
+            
+            // FULL representation  
+            ObjectNode fullRep = analyzeRepresentationWithTypes(mapper, handler, Representation.FULL, delegateType);
+            representations.set("FULL", fullRep);
+            if (fullRep.has("properties")) {
+                generateOpenApiSchema(schemas, resourceName + "_FULL", fullRep, mapper);
+            }
+            
+            // REF representation
+            ObjectNode refRep = analyzeRepresentationWithTypes(mapper, handler, Representation.REF, delegateType);
+            representations.set("REF", refRep);
+            if (refRep.has("properties")) {
+                generateOpenApiSchema(schemas, resourceName + "_REF", refRep, mapper);
+            }
+            
+            resourceNode.set("representations", representations);
+        }
+        
+        return resourceNode;
+    }
+    
+    private ObjectNode analyzeRepresentationWithTypes(ObjectMapper mapper, 
+            DelegatingResourceHandler<?> handler, Representation representation, Class<?> delegateType) {
         
         try {
-            DelegatingResourceDescription description = handler.getRepresentationDescription(Representation.DEFAULT);
-            if (description != null && description.getProperties() != null) {
-                
-                ObjectNode resourceSchema = mapper.createObjectNode();
-                resourceSchema.put("type", "object");
-                resourceSchema.put("description", "Schema for " + resourceName + " resource");
-                
+            DelegatingResourceDescription description = handler.getRepresentationDescription(representation);
+            
+            if (description == null) {
+                ObjectNode errorNode = mapper.createObjectNode();
+                errorNode.put("error", "Representation not supported");
+                return errorNode;
+            }
+            
+            ObjectNode repNode = mapper.createObjectNode();
+            int propertyCount = (description.getProperties() != null) ? description.getProperties().size() : 0;
+            int linkCount = (description.getLinks() != null) ? description.getLinks().size() : 0;
+            
+            repNode.put("propertyCount", propertyCount);
+            repNode.put("linkCount", linkCount);
+            
+            // NEW: Extract property names and types using schema introspection
+            if (description.getProperties() != null) {
                 ObjectNode properties = mapper.createObjectNode();
                 
                 for (Map.Entry<String, DelegatingResourceDescription.Property> entry : 
@@ -513,66 +338,369 @@ public class OpenApiGeneratorTest extends BaseModuleWebContextSensitiveTest {
                     String propertyName = entry.getKey();
                     DelegatingResourceDescription.Property property = entry.getValue();
                     
-                    ObjectNode propertySchema = mapper.createObjectNode();
+                    ObjectNode propertyInfo = mapper.createObjectNode();
                     
-                    // Detect clean type
-                    String cleanType = detectCleanPropertyType(property);
-                    propertySchema.put("type", cleanType);
+                    // Use robust type detection from schema introspection
+                    String javaType = detectPropertyTypeUsingIntrospection(property, delegateType, propertyName);
+                    String openApiType = mapJavaTypeToOpenApiType(javaType);
                     
-                    // Add simple description 
-                    if (property.getDelegateProperty() != null) {
-                        propertySchema.put("description", property.getDelegateProperty());
+                    propertyInfo.put("javaType", javaType);
+                    propertyInfo.put("openApiType", openApiType);
+                    propertyInfo.put("required", property.isRequired());
+                    
+                    // Add representation-specific info
+                    if (property.getRep() != null) {
+                        propertyInfo.put("representationLevel", property.getRep().getRepresentation());
                     }
                     
-                    // Handle arrays
-                    if ("array".equals(cleanType)) {
-                        ObjectNode items = mapper.createObjectNode();
-                        items.put("type", "string"); // Default item type
-                        propertySchema.set("items", items);
-                    }
-                    
-                    properties.set(propertyName, propertySchema);
+                    properties.set(propertyName, propertyInfo);
                 }
                 
-                resourceSchema.set("properties", properties);
-                schemas.set(resourceName, resourceSchema);
-                
+                repNode.set("properties", properties);
             }
+            
+            return repNode;
+            
         } catch (UnsupportedOperationException e) {
-            throw new RuntimeException("DEFAULT representation not supported for " + resourceName);
+            ObjectNode errorNode = mapper.createObjectNode();
+            errorNode.put("error", "Representation not supported");
+            return errorNode;
         }
     }
     
     /**
-     * Simpler type detection with better logic
+     * NEW: Detect property type using schema introspection approach
+     * This combines representation property info with actual class introspection
      */
-    private String detectCleanPropertyType(DelegatingResourceDescription.Property property) {
-        // Strategy 1: Check method return type first (most reliable)
-        if (property.getMethod() != null) {
-            Class<?> returnType = property.getMethod().getReturnType();
-            String type = mapJavaTypeToOpenApi(returnType);
-            if (!"object".equals(type)) { // If we got a specific type, use it
-                return type;
+    private String detectPropertyTypeUsingIntrospection(DelegatingResourceDescription.Property property, 
+            Class<?> delegateType, String propertyName) {
+        
+        // First try to get type from the actual delegate class (most accurate)
+        if (delegateType != null) {
+            String typeFromClass = getPropertyTypeFromClass(delegateType, propertyName);
+            if (typeFromClass != null) {
+                return typeFromClass;
             }
         }
         
-        // Strategy 2: Check convertAs class
+        // Fallback to representation-based detection
         if (property.getConvertAs() != null) {
-            String type = mapJavaTypeToOpenApi(property.getConvertAs());
-            if (!"object".equals(type)) {
-                return type;
+            return property.getConvertAs().getSimpleName();
+        }
+        
+        if (property.getMethod() != null) {
+            return getTypeName(property.getMethod().getGenericReturnType());
+        }
+        
+        // Last resort - name heuristics
+        return guessJavaTypeFromPropertyName(propertyName);
+    }
+    
+    /**
+     * Get property type from actual class using schema introspection logic
+     */
+    private String getPropertyTypeFromClass(Class<?> clazz, String propertyName) {
+        try {
+            // Check bean properties first
+            PropertyDescriptor[] descriptors = Introspector.getBeanInfo(clazz).getPropertyDescriptors();
+            for (PropertyDescriptor descriptor : descriptors) {
+                if (propertyName.equals(descriptor.getName()) && descriptor.getReadMethod() != null) {
+                    return getTypeName(descriptor.getReadMethod().getGenericReturnType());
+                }
+            }
+            
+            // Check fields
+            Field field = findField(clazz, propertyName);
+            if (field != null) {
+                return getTypeName(field.getGenericType());
+            }
+            
+        } catch (IntrospectionException e) {
+            log.debug("Error introspecting {}: {}", clazz.getSimpleName(), e.getMessage());
+        }
+        
+        return null;
+    }
+    
+    private Field findField(Class<?> clazz, String fieldName) {
+        Class<?> current = clazz;
+        while (current != null && !current.equals(Object.class)) {
+            try {
+                Field field = current.getDeclaredField(fieldName);
+                if (Modifier.isPublic(field.getModifiers()) && !Modifier.isStatic(field.getModifiers())) {
+                    return field;
+                }
+            } catch (NoSuchFieldException e) {
+                // Continue searching in parent class
+            }
+            current = current.getSuperclass();
+        }
+        return null;
+    }
+    
+    /**
+     * Get type name from Type (from SchemaIntrospectionService)
+     */
+    private String getTypeName(Type type) {
+        if (type instanceof Class) {
+            return ((Class<?>) type).getSimpleName();
+        } else if (type instanceof ParameterizedType) {
+            ParameterizedType parameterizedType = (ParameterizedType) type;
+            Type rawType = parameterizedType.getRawType();
+            Type[] actualTypeArguments = parameterizedType.getActualTypeArguments();
+            
+            if (rawType instanceof Class) {
+                String rawTypeName = ((Class<?>) rawType).getSimpleName();
+                if (actualTypeArguments.length > 0) {
+                    List<String> typeArgNames = new ArrayList<>();
+                    for (Type argType : actualTypeArguments) {
+                        typeArgNames.add(getTypeName(argType));
+                    }
+                    return rawTypeName + "<" + String.join(", ", typeArgNames) + ">";
+                }
+                return rawTypeName;
             }
         }
         
-        // Strategy 3: Check representation level
-        if (property.getRep() != null) {
-            if (property.getRep() == Representation.REF) {
-                return "string"; // REF typically returns uuid + display
+        return type.toString();
+    }
+    
+    /**
+     * Extract delegate type from resource handler (from SchemaIntrospectionService)
+     */
+    private Class<?> getDelegateTypeFromResource(DelegatingResourceHandler<?> handler) {
+        Class<?> resourceClass = handler.getClass();
+        
+        while (resourceClass != null) {
+            Type[] genericInterfaces = resourceClass.getGenericInterfaces();
+            for (Type genericInterface : genericInterfaces) {
+                if (genericInterface instanceof ParameterizedType) {
+                    ParameterizedType parameterizedType = (ParameterizedType) genericInterface;
+                    Type rawType = parameterizedType.getRawType();
+                    
+                    if (rawType instanceof Class && 
+                        DelegatingResourceHandler.class.isAssignableFrom((Class<?>) rawType)) {
+                        Type[] typeArgs = parameterizedType.getActualTypeArguments();
+                        if (typeArgs.length > 0 && typeArgs[0] instanceof Class) {
+                            return (Class<?>) typeArgs[0];
+                        }
+                    }
+                }
             }
+            
+            Type genericSuperclass = resourceClass.getGenericSuperclass();
+            if (genericSuperclass instanceof ParameterizedType) {
+                ParameterizedType parameterizedType = (ParameterizedType) genericSuperclass;
+                Type[] typeArgs = parameterizedType.getActualTypeArguments();
+                if (typeArgs.length > 0 && typeArgs[0] instanceof Class) {
+                    return (Class<?>) typeArgs[0];
+                }
+            }
+            
+            resourceClass = resourceClass.getSuperclass();
         }
         
-        // Strategy 4: Property name heuristics
-        String type = guessTypeFromPropertyName(property.getDelegateProperty());
-        return type;
+        return null;
+    }
+    
+    private String mapJavaTypeToOpenApiType(String javaType) {
+        if (javaType == null) return "string";
+        
+        if (javaType.equals("String")) return "string";
+        if (javaType.equals("Integer") || javaType.equals("Long")) return "integer";
+        if (javaType.equals("Double") || javaType.equals("Float")) return "number";
+        if (javaType.equals("Boolean")) return "boolean";
+        if (javaType.equals("Date") || javaType.contains("Date")) return "string";
+        if (javaType.startsWith("List<") || javaType.startsWith("Set<") || javaType.startsWith("Collection<")) return "array";
+        
+        return "object";
+    }
+    
+    private String guessJavaTypeFromPropertyName(String propertyName) {
+        if (propertyName == null) return "String";
+        
+        String lowerName = propertyName.toLowerCase();
+        
+        if (lowerName.contains("date") || lowerName.contains("time")) return "Date";
+        if (lowerName.startsWith("is") || lowerName.equals("voided") || lowerName.equals("retired")) return "Boolean";
+        if (lowerName.contains("id") && !lowerName.equals("uuid")) return "Integer";
+        if (lowerName.endsWith("s") && !lowerName.equals("address")) return "List<String>";
+        
+        return "String";
+    }
+    
+    private void generateOpenApiSchema(ObjectNode schemas, String schemaName, ObjectNode repData, ObjectMapper mapper) {
+        if (!repData.has("properties")) return;
+        
+        ObjectNode schema = mapper.createObjectNode();
+        schema.put("type", "object");
+        schema.put("description", "Schema for " + schemaName);
+        
+        ObjectNode properties = mapper.createObjectNode();
+        ObjectNode repProperties = (ObjectNode) repData.get("properties");
+        
+        repProperties.fields().forEachRemaining(entry -> {
+            String propName = entry.getKey();
+            ObjectNode propInfo = (ObjectNode) entry.getValue();
+            
+            String javaType = propInfo.get("javaType").asText();
+            String openApiType = propInfo.get("openApiType").asText();
+            
+            ObjectNode propSchema = createPropertySchemaWithProperRefs(mapper, propName, javaType, openApiType, schemas);
+            properties.set(propName, propSchema);
+        });
+        
+        schema.set("properties", properties);
+        schemas.set(schemaName, schema);
+    }
+    
+    /**
+     * Create property schema with proper $ref handling for OpenMRS domain types
+     * This generates the output you want like: "voidedBy": {"$ref": "#/components/schemas/User"}
+     */
+    private ObjectNode createPropertySchemaWithProperRefs(ObjectMapper mapper, String propName, String javaType, String openApiType, ObjectNode schemas) {
+        ObjectNode propSchema = mapper.createObjectNode();
+        
+        // Handle OpenMRS domain types with $ref (like User, Patient, Encounter)
+        if (isOpenMRSDomainType(javaType)) {
+            String refName = cleanTypeNameForRef(javaType);
+            propSchema.put("$ref", "#/components/schemas/" + refName);
+            
+            // Ensure the referenced type schema exists
+            if (!schemas.has(refName)) {
+                createReferencedTypeSchema(mapper, schemas, refName, javaType);
+            }
+            
+            return propSchema;
+        }
+        
+        // Handle collections with proper array typing and $ref for complex items
+        if (javaType.startsWith("List<") || javaType.startsWith("Set<") || javaType.startsWith("Collection<")) {
+            propSchema.put("type", "array");
+            String itemType = extractGenericType(javaType);
+            
+            ObjectNode items = mapper.createObjectNode();
+            if (isOpenMRSDomainType(itemType)) {
+                String refName = cleanTypeNameForRef(itemType);
+                items.put("$ref", "#/components/schemas/" + refName);
+                
+                // Ensure the referenced type schema exists
+                if (!schemas.has(refName)) {
+                    createReferencedTypeSchema(mapper, schemas, refName, itemType);
+                }
+            } else {
+                items.put("type", mapJavaTypeToOpenApiType(itemType));
+                if (itemType.equals("Date") || itemType.contains("Date")) {
+                    items.put("format", "date-time");
+                }
+            }
+            propSchema.set("items", items);
+            propSchema.put("description", "Array of " + itemType);
+            return propSchema;
+        }
+        
+        // Handle primitive and simple types
+        propSchema.put("type", openApiType);
+        
+        // Add format for dates
+        if (javaType.equals("Date") || javaType.contains("Date")) {
+            propSchema.put("format", "date-time");
+        }
+        
+        // Add description
+        propSchema.put("description", propName + " (" + javaType + ")");
+        
+        return propSchema;
+    }
+    
+    /**
+     * Check if a Java type is an OpenMRS domain type that should be referenced with $ref
+     */
+    private boolean isOpenMRSDomainType(String javaType) {
+        return javaType.equals("Patient") || javaType.equals("Person") || javaType.equals("Encounter") || 
+               javaType.equals("Concept") || javaType.equals("Location") || javaType.equals("User") ||
+               javaType.equals("Provider") || javaType.equals("Visit") || javaType.contains("Attribute") ||
+               javaType.equals("Program") || javaType.equals("ConceptClass") || javaType.equals("Condition") ||
+               javaType.contains("PatientState") || javaType.contains("PatientProgram") || 
+               javaType.contains("ConditionVerificationStatus") || javaType.contains("ConditionClinicalStatus") ||
+               javaType.contains("CodedOrFreeText") || javaType.contains("CareSettingType") ||
+               javaType.contains("ConceptStateConversion") || javaType.contains("VisitType") ||
+               javaType.contains("ProgramWorkflowState") || javaType.contains("WorkflowState");
+    }
+    
+    /**
+     * Clean type name for $ref usage (remove generics brackets, etc.)
+     */
+    private String cleanTypeNameForRef(String javaType) {
+        return javaType.replaceAll("[<>]", "").replace("[]", "Array");
+    }
+    
+    /**
+     * Create a referenced type schema for $ref targets
+     */
+    private void createReferencedTypeSchema(ObjectMapper mapper, ObjectNode schemas, String refName, String javaType) {
+        ObjectNode typeSchema = mapper.createObjectNode();
+        typeSchema.put("type", "object");
+        typeSchema.put("description", "Schema for " + refName + " (Java type: " + javaType + ")");
+        
+        // Add common properties that most OpenMRS domain objects have
+        ObjectNode typeProperties = mapper.createObjectNode();
+        
+        ObjectNode idProperty = mapper.createObjectNode();
+        idProperty.put("type", "integer");
+        idProperty.put("description", "Unique identifier");
+        typeProperties.set("id", idProperty);
+        
+        ObjectNode uuidProperty = mapper.createObjectNode();
+        uuidProperty.put("type", "string");
+        uuidProperty.put("description", "Universally unique identifier");
+        typeProperties.set("uuid", uuidProperty);
+        
+        ObjectNode displayProperty = mapper.createObjectNode();
+        displayProperty.put("type", "string");
+        displayProperty.put("description", "Display representation");
+        typeProperties.set("display", displayProperty);
+        
+        typeSchema.set("properties", typeProperties);
+        schemas.set(refName, typeSchema);
+        
+        log.debug("Created referenced type schema for: {}", refName);
+    }
+    
+    /**
+     * Extract generic type from parameterized type string
+     */
+    private String extractGenericType(String parameterizedType) {
+        if (parameterizedType.contains("<") && parameterizedType.contains(">")) {
+            int start = parameterizedType.indexOf("<") + 1;
+            int end = parameterizedType.lastIndexOf(">");
+            String genericType = parameterizedType.substring(start, end);
+            
+            // Handle nested generics by taking the first type
+            if (genericType.contains(",")) {
+                genericType = genericType.split(",")[0].trim();
+            }
+            
+            return genericType;
+        }
+        
+        return "string"; // Default
+    }
+    
+    private void writeJsonToFile(ObjectMapper mapper, ObjectNode jsonNode, String filename) {
+        try {
+            File outputDir = new File("target");
+            if (!outputDir.exists()) {
+                outputDir.mkdirs();
+            }
+            
+            File outputFile = new File(outputDir, filename);
+            mapper.writeValue(outputFile, jsonNode);
+            
+            log.info("✓ Saved: {}", outputFile.getAbsolutePath());
+            
+        } catch (Exception e) {
+            log.error("Failed to write {}: {}", filename, e.getMessage());
+        }
     }
 }

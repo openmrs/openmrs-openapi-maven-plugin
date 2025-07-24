@@ -114,7 +114,7 @@ public class RepresentationAnalyzerMojo extends AbstractMojo {
         command.add("-DanalysisOutputFile=" + outputFile);
         
         command.add("org.junit.runner.JUnitCore");
-        command.add("org.openmrs.plugin.rest.analyzer.test.RepresentationAnalyzerTest");
+        command.add("org.openmrs.plugin.rest.analyzer.test.OpenmrsOpenapiSpecGeneratorTest");
         
         log.debug("Executing command: {}", String.join(" ", command));
         
