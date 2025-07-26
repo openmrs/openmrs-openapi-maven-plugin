@@ -37,6 +37,9 @@ public class RepresentationAnalyzerMojo extends AbstractMojo {
     @Parameter(defaultValue = "300", property = "timeoutSeconds")
     private int timeoutSeconds;
 
+    @Parameter(defaultValue = "2.4.x", property = "openmrsVersion")
+    private String openmrsVersion;
+
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
         
@@ -112,6 +115,7 @@ public class RepresentationAnalyzerMojo extends AbstractMojo {
         
         command.add("-DanalysisOutputDir=" + outputDirectory);
         command.add("-DanalysisOutputFile=" + outputFile);
+        command.add("-Dopenmrs.version=" + openmrsVersion);
         
         command.add("org.junit.runner.JUnitCore");
         command.add("org.openmrs.plugin.rest.analyzer.test.OpenmrsOpenapiSpecGeneratorTest");

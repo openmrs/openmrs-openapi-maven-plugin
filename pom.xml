@@ -21,18 +21,15 @@
         <maven.compiler.target>8</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         
-        <!-- OpenMRS versions -->
         <openmrs.version>2.4.6-SNAPSHOT</openmrs.version>
         <webservices.rest.version>2.50.0-SNAPSHOT</webservices.rest.version>
         
-        <!-- Maven and testing -->
         <maven.version>3.6.3</maven.version>
         <junit.version>4.13.2</junit.version>
     </properties>
 
     <dependencyManagement>
         <dependencies>
-            <!-- Import OpenMRS BOM to manage transitive dependencies -->
             <dependency>
                 <groupId>org.openmrs.api</groupId>
                 <artifactId>openmrs-api</artifactId>
@@ -44,7 +41,6 @@
     </dependencyManagement>
 
     <dependencies>
-        <!-- Maven Plugin API -->
         <dependency>
             <groupId>org.apache.maven</groupId>
             <artifactId>maven-plugin-api</artifactId>
@@ -64,42 +60,36 @@
             <version>2.2.1</version>
         </dependency>
 
-        <!-- JUnit 4 for programmatic test execution -->
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
             <version>${junit.version}</version>
+            <scope>test</scope>
         </dependency>
-
-        <!-- JUnit 5 for modern test framework -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-api</artifactId>
             <version>5.8.2</version>
             <scope>test</scope>
         </dependency>
-        
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-engine</artifactId>
             <version>5.8.2</version>
             <scope>test</scope>
         </dependency>
-
-        <!-- OpenMRS Core Dependencies -->
         <dependency>
             <groupId>org.openmrs.api</groupId>
             <artifactId>openmrs-api</artifactId>
             <version>${openmrs.version}</version>
+            <scope>test</scope>
         </dependency>
-        
         <dependency>
             <groupId>org.openmrs.web</groupId>
             <artifactId>openmrs-web</artifactId>
             <version>${openmrs.version}</version>
+            <scope>test</scope>
         </dependency>
-        
-        <!-- OpenMRS Test Dependencies -->
         <dependency>
             <groupId>org.openmrs.api</groupId>
             <artifactId>openmrs-api</artifactId>
@@ -107,7 +97,6 @@
             <classifier>tests</classifier>
             <scope>test</scope>
         </dependency>
-        
         <dependency>
             <groupId>org.openmrs.web</groupId>
             <artifactId>openmrs-web</artifactId>
@@ -115,7 +104,6 @@
             <classifier>tests</classifier>
             <scope>test</scope>
         </dependency>
-        
         <dependency>
             <groupId>org.openmrs.test</groupId>
             <artifactId>openmrs-test</artifactId>
@@ -123,14 +111,12 @@
             <type>pom</type>
             <scope>test</scope>
         </dependency>
-
-        <!-- REST Module Dependencies - Only include one version that matches your target -->
         <dependency>
             <groupId>org.openmrs.module</groupId>
             <artifactId>webservices.rest-omod-common</artifactId>
             <version>${webservices.rest.version}</version>
+            <scope>test</scope>
         </dependency>
-        
         <dependency>
             <groupId>org.openmrs.module</groupId>
             <artifactId>webservices.rest-omod-common</artifactId>
@@ -138,49 +124,37 @@
             <classifier>tests</classifier>
             <scope>test</scope>
         </dependency>
-        
         <dependency>
             <groupId>org.openmrs.module</groupId>
             <artifactId>webservices.rest-omod-2.4</artifactId>
             <version>${webservices.rest.version}</version>
+            <scope>test</scope>
         </dependency>
-
-
-
-        <!-- Database for testing -->
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
             <version>1.4.200</version>
             <scope>test</scope>
         </dependency>
-
-        <!-- Logging -->
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
         </dependency>
-        
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-simple</artifactId>
             <version>1.7.30</version>
             <scope>test</scope>
         </dependency>
-
-        <!-- Servlet API for web context tests -->
         <dependency>
             <groupId>javax.servlet</groupId>
             <artifactId>javax.servlet-api</artifactId>
         </dependency>
-        
-        <!-- OpenAPI 3.0 for modern spec generation -->
         <dependency>
             <groupId>io.swagger.core.v3</groupId>
             <artifactId>swagger-models</artifactId>
             <version>2.2.15</version>
         </dependency>
-        
         <dependency>
             <groupId>io.swagger.core.v3</groupId>
             <artifactId>swagger-core</artifactId>
@@ -226,7 +200,6 @@
                     </systemPropertyVariables>
                 </configuration>
                 <dependencies>
-                    <!-- JUnit 5 vintage engine for JUnit 4 compatibility -->
                     <dependency>
                         <groupId>org.junit.vintage</groupId>
                         <artifactId>junit-vintage-engine</artifactId>
@@ -252,5 +225,4 @@
             <url>https://mavenrepo.openmrs.org/public</url>
         </pluginRepository>
     </pluginRepositories>
-
 </project>
