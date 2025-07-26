@@ -55,10 +55,11 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
     private static final String OUTPUT_FILE = "openapi-spec-output.json";
     
     private SchemaIntrospectionService schemaIntrospectionService;
-
+    private Set<String> restDomainTypes = new HashSet<>();
+    
     @BeforeEach
     public void setup() throws Exception {
-        log.info("=== Setting up OpenAPI Spec Generator V2 Test ===");
+        log.info("=== Setting up OpenAPI Spec Generator Test ===");
         
         RestService restService = Context.getService(RestService.class);
         assertNotNull(restService, "RestService should be available");
@@ -69,42 +70,119 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
         Context.flushSession();
         
         schemaIntrospectionService = new SchemaIntrospectionServiceImpl();
+        
+        // Build domain type set from REST resource handlers
+        buildRestDomainTypeSet(restService);
+        
         log.info("=== Setup Complete ===");
+    }
+    
+    /**
+     * Builds a set of domain types by discovering all delegate types from REST resource handlers.
+     * This ensures our OpenAPI spec only references types that are actually exposed via REST.
+     */
+    private void buildRestDomainTypeSet(RestService restService) {
+        log.info("Building domain type set from REST resource handlers...");
+        
+        Collection<DelegatingResourceHandler<?>> handlers = restService.getResourceHandlers();
+        int discoveredTypes = 0;
+        
+        for (DelegatingResourceHandler<?> handler : handlers) {
+            try {
+                // Check if handler implements Resource interface before casting
+                if (!(handler instanceof org.openmrs.module.webservices.rest.web.resource.api.Resource)) {
+                    log.debug("Skipping handler that doesn't implement Resource interface: {}", 
+                            handler.getClass().getSimpleName());
+                    continue;
+                }
+                
+                Class<?> delegateType = schemaIntrospectionService.getDelegateType(
+                    (org.openmrs.module.webservices.rest.web.resource.api.Resource) handler);
+                
+                if (delegateType != null) {
+                    String typeName = delegateType.getSimpleName();
+                    restDomainTypes.add(typeName);
+                    discoveredTypes++;
+                    log.debug("Discovered domain type: {} from handler: {}", 
+                             typeName, handler.getClass().getSimpleName());
+                } else {
+                    log.warn("Could not determine delegate type for handler: {}", 
+                            handler.getClass().getSimpleName());
+                }
+            } catch (IllegalArgumentException | SecurityException e) {
+                log.warn("Error discovering delegate type for handler {}: {}", 
+                        handler.getClass().getSimpleName(), e.getMessage());
+            }
+        }
+        
+        log.info("Discovered {} domain types from {} REST resource handlers", 
+                discoveredTypes, handlers.size());
+        log.debug("Domain types: {}", restDomainTypes);
+    }
+
+    @Test
+    @DisplayName("Test REST domain type discovery")
+    public void testRestDomainTypesDiscovery() {
+        // These are types you expect to always be present in a standard OpenMRS install
+        List<String> expectedTypes = Arrays.asList("Patient", "Person", "Encounter");
+        for (String type : expectedTypes) {
+            assertTrue(restDomainTypes.contains(type), "Domain type should be discovered: " + type);
+        }
+        log.info("All discovered REST domain types: {}", restDomainTypes);
     }
 
     @Test
     @DisplayName("Generate OpenAPI 3.0 spec for all resources using introspection service")
     public void generateOpenApiSpecForAllResources() throws Exception {
-        log.info("=== Starting OpenAPI Spec Generation V2 ===");
+        log.info("=== Starting OpenAPI Spec Generation ===");
         
         RestService restService = Context.getService(RestService.class);
         Collection<DelegatingResourceHandler<?>> handlers = restService.getResourceHandlers();
-        assertTrue(handlers.size() > 0, "Should have at least one resource handler");
         
-        log.info("Found {} REST resource handlers", handlers.size());
+        // Validate that we have resources to process
+        assertTrue(handlers.size() > 0, "Should have at least one resource handler");
+        assertTrue(restDomainTypes.size() > 0, "Should have discovered at least one domain type");
+        
+        log.info("Found {} REST resource handlers and {} domain types", handlers.size(), restDomainTypes.size());
         
         OpenAPI openAPI = createBaseOpenApiStructure();
         Components components = new Components();
         Paths paths = new Paths();
         
+        int processedHandlers = 0;
+        int successfulHandlers = 0;
+        
         for (DelegatingResourceHandler<?> handler : handlers) {
-            processResourceHandler(handler, components, paths);
+            processedHandlers++;
+            if (processResourceHandler(handler, components, paths)) {
+                successfulHandlers++;
+            }
         }
+        
+        // Validate results
+        assertTrue(successfulHandlers > 0, "Should have successfully processed at least one resource handler");
+        assertTrue(components.getSchemas() != null && components.getSchemas().size() > 0, 
+                  "Should have generated at least one schema");
+        assertTrue(paths.size() > 0, "Should have generated at least one path");
         
         openAPI.setComponents(components);
         openAPI.setPaths(paths);
         
+        // Validate OpenAPI structure
+        validateOpenApiStructure(openAPI);
+        
         writeOpenApiToFile(openAPI);
         
-        log.info("OpenAPI 3.0 spec generated successfully: {}", OUTPUT_FILE);
+        log.info("OpenAPI 3.0 spec generated successfully: {} (processed {}/{} handlers)", 
+                OUTPUT_FILE, successfulHandlers, processedHandlers);
     }
     
-    private void processResourceHandler(DelegatingResourceHandler<?> handler, Components components, Paths paths) {
+    private boolean processResourceHandler(DelegatingResourceHandler<?> handler, Components components, Paths paths) {
         try {
             Resource annotation = handler.getClass().getAnnotation(Resource.class);
             if (annotation == null) {
                 log.debug("Skipping handler without @Resource annotation: {}", handler.getClass().getSimpleName());
-                return;
+                return false;
             }
             
             String resourceName = annotation.name();
@@ -113,10 +191,17 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
             
             log.info("Processing resource: {} ({})", resourceName, handler.getClass().getSimpleName());
             
+            // Check if handler implements Resource interface before casting
+            if (!(handler instanceof org.openmrs.module.webservices.rest.web.resource.api.Resource)) {
+                log.debug("Skipping handler that doesn't implement Resource interface: {}", 
+                        handler.getClass().getSimpleName());
+                return false;
+            }
+            
             Class<?> delegateType = schemaIntrospectionService.getDelegateType((org.openmrs.module.webservices.rest.web.resource.api.Resource) handler);
             if (delegateType == null) {
                 log.warn("Could not determine delegate type for {}", handler.getClass().getSimpleName());
-                return;
+                return false;
             }
             
             Map<String, String> allProperties = schemaIntrospectionService.discoverResourceProperties((org.openmrs.module.webservices.rest.web.resource.api.Resource) handler);
@@ -140,16 +225,18 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
             
             if (representationSchemas.isEmpty()) {
                 log.warn("No valid representations found for {}", resourceName);
-                return;
+                return false;
             }
             
             PathItem pathItem = createPathItem(resourceType, representationSchemas);
             paths.addPathItem(resourcePath, pathItem);
             
             log.info("Created path for {} with {} representations", resourceName, representationSchemas.size());
+            return true;
             
-        } catch (Exception e) {
+        } catch (IllegalArgumentException | SecurityException | IllegalStateException e) {
             log.error("Error processing resource handler {}: {}", handler.getClass().getSimpleName(), e.getMessage(), e);
+            return false;
         }
     }
     
@@ -183,7 +270,7 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
             
             return schema;
             
-        } catch (Exception e) {
+        } catch (IllegalArgumentException | SecurityException | IllegalStateException e) {
             log.warn("Could not generate schema for representation {}: {}", representation, e.getMessage());
             return null;
         }
@@ -277,7 +364,24 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
         content.addMediaType("application/json", mediaType);
         response200.setContent(content);
         
+        // Add comprehensive response codes
         responses.addApiResponse("200", response200);
+        
+        // Add 404 response
+        ApiResponse response404 = new ApiResponse();
+        response404.setDescription("Resource with given UUID doesn't exist");
+        responses.addApiResponse("404", response404);
+        
+        // Add 401 response
+        ApiResponse response401 = new ApiResponse();
+        response401.setDescription("User not logged in");
+        responses.addApiResponse("401", response401);
+        
+        // Add 400 response
+        ApiResponse response400 = new ApiResponse();
+        response400.setDescription("Bad request - invalid parameters");
+        responses.addApiResponse("400", response400);
+        
         getOperation.setResponses(responses);
         
         pathItem.setGet(getOperation);
@@ -302,29 +406,71 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
         return javaType.startsWith("List<") || javaType.startsWith("Set<") || javaType.startsWith("Collection<");
     }
     
+    /**
+     * Extracts the generic type from a parameterized type string.
+     * Handles complex generic types like Map<String, List<Patient>>.
+     */
     private String extractGenericType(String parameterizedType) {
-        if (parameterizedType.contains("<") && parameterizedType.contains(">")) {
+        if (parameterizedType == null || !parameterizedType.contains("<")) {
+            return "String";
+        }
+        
+        try {
             int start = parameterizedType.indexOf("<") + 1;
             int end = parameterizedType.lastIndexOf(">");
-            String genericType = parameterizedType.substring(start, end);
-            if (genericType.contains(",")) {
-                genericType = genericType.split(",")[0].trim();
+            
+            if (start <= 0 || end <= start) {
+                return "String";
             }
+            
+            String genericType = parameterizedType.substring(start, end);
+            
+            // Handle nested generics by finding the first comma that's not inside nested brackets
+            int bracketCount = 0;
+            int commaIndex = -1;
+            
+            for (int i = 0; i < genericType.length(); i++) {
+                char c = genericType.charAt(i);
+                if (c == '<') {
+                    bracketCount++;
+                } else if (c == '>') {
+                    bracketCount--;
+                } else if (c == ',' && bracketCount == 0) {
+                    commaIndex = i;
+                    break;
+                }
+            }
+            
+            if (commaIndex > 0) {
+                genericType = genericType.substring(0, commaIndex).trim();
+            }
+            
             return genericType;
+        } catch (StringIndexOutOfBoundsException | IllegalArgumentException e) {
+            log.warn("Error extracting generic type from '{}': {}", parameterizedType, e.getMessage());
+            return "String";
         }
-        return "String";
     }
     
+    /**
+     * Determines if a Java type should be treated as an OpenMRS domain type for $ref generation.
+     * Uses contextual REST discovery to ensure only types actually exposed via REST are included.
+     */
     private boolean isOpenMRSDomainType(String javaType) {
-        return javaType.equals("Patient") || javaType.equals("Person") || javaType.equals("Encounter") ||
-               javaType.equals("Concept") || javaType.equals("Location") || javaType.equals("User") ||
-               javaType.equals("Provider") || javaType.equals("Visit") || javaType.contains("Attribute") ||
-               javaType.equals("Program") || javaType.equals("ConceptClass") || javaType.equals("Condition") ||
-               javaType.contains("PatientState") || javaType.contains("PatientProgram") ||
-               javaType.contains("ConditionVerificationStatus") || javaType.contains("ConditionClinicalStatus") ||
-               javaType.contains("CodedOrFreeText") || javaType.contains("CareSettingType") ||
-               javaType.contains("ConceptStateConversion") || javaType.contains("VisitType") ||
-               javaType.contains("ProgramWorkflowState") || javaType.contains("WorkflowState");
+        if (javaType == null) {
+            return false;
+        }
+        
+        // Check if this type is in our discovered REST domain types
+        boolean isRestDomainType = restDomainTypes.contains(javaType);
+        
+        if (isRestDomainType) {
+            log.debug("Treating '{}' as domain type (discovered via REST)", javaType);
+            return true;
+        }
+        
+        log.debug("Treating '{}' as generic object (not discovered via REST)", javaType);
+        return false;
     }
     
     private OpenAPI createBaseOpenApiStructure() {
@@ -345,13 +491,33 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
             if (version != null && !version.isEmpty()) {
                 return version;
             }
-        } catch (Exception ignored) {}
+        } catch (IllegalArgumentException | SecurityException ignored) {}
         
         String sysProp = System.getProperty("openmrs.version");
         if (sysProp != null && !sysProp.isEmpty()) {
             return sysProp;
         }
         return "2.4.x";
+    }
+    
+    /**
+     * Validates the generated OpenAPI structure for completeness and correctness.
+     */
+    private void validateOpenApiStructure(OpenAPI openAPI) {
+        assertNotNull(openAPI, "OpenAPI object should not be null");
+        assertNotNull(openAPI.getInfo(), "OpenAPI info should not be null");
+        assertNotNull(openAPI.getInfo().getTitle(), "OpenAPI title should not be null");
+        assertNotNull(openAPI.getInfo().getVersion(), "OpenAPI version should not be null");
+        
+        if (openAPI.getComponents() != null && openAPI.getComponents().getSchemas() != null) {
+            log.info("Generated {} schemas", openAPI.getComponents().getSchemas().size());
+        }
+        
+        if (openAPI.getPaths() != null) {
+            log.info("Generated {} paths", openAPI.getPaths().size());
+        }
+        
+        log.info("OpenAPI structure validation passed");
     }
     
     private void writeOpenApiToFile(OpenAPI openAPI) throws Exception {
