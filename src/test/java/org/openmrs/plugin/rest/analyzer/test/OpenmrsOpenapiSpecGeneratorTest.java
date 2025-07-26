@@ -17,9 +17,6 @@ import org.openmrs.plugin.rest.analyzer.introspection.SchemaIntrospectionService
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.Components;
@@ -71,7 +68,6 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
         
         schemaIntrospectionService = new SchemaIntrospectionServiceImpl();
         
-        // Build domain type set from REST resource handlers
         buildRestDomainTypeSet(restService);
         
         log.info("=== Setup Complete ===");
@@ -89,7 +85,6 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
         
         for (DelegatingResourceHandler<?> handler : handlers) {
             try {
-                // Check if handler implements Resource interface before casting
                 if (!(handler instanceof org.openmrs.module.webservices.rest.web.resource.api.Resource)) {
                     log.debug("Skipping handler that doesn't implement Resource interface: {}", 
                             handler.getClass().getSimpleName());
@@ -123,7 +118,6 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
     @Test
     @DisplayName("Test REST domain type discovery")
     public void testRestDomainTypesDiscovery() {
-        // These are types you expect to always be present in a standard OpenMRS install
         List<String> expectedTypes = Arrays.asList("Patient", "Person", "Encounter");
         for (String type : expectedTypes) {
             assertTrue(restDomainTypes.contains(type), "Domain type should be discovered: " + type);
@@ -139,7 +133,6 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
         RestService restService = Context.getService(RestService.class);
         Collection<DelegatingResourceHandler<?>> handlers = restService.getResourceHandlers();
         
-        // Validate that we have resources to process
         assertTrue(handlers.size() > 0, "Should have at least one resource handler");
         assertTrue(restDomainTypes.size() > 0, "Should have discovered at least one domain type");
         
@@ -159,7 +152,6 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
             }
         }
         
-        // Validate results
         assertTrue(successfulHandlers > 0, "Should have successfully processed at least one resource handler");
         assertTrue(components.getSchemas() != null && components.getSchemas().size() > 0, 
                   "Should have generated at least one schema");
@@ -168,7 +160,6 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
         openAPI.setComponents(components);
         openAPI.setPaths(paths);
         
-        // Validate OpenAPI structure
         validateOpenApiStructure(openAPI);
         
         writeOpenApiToFile(openAPI);
@@ -191,7 +182,6 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
             
             log.info("Processing resource: {} ({})", resourceName, handler.getClass().getSimpleName());
             
-            // Check if handler implements Resource interface before casting
             if (!(handler instanceof org.openmrs.module.webservices.rest.web.resource.api.Resource)) {
                 log.debug("Skipping handler that doesn't implement Resource interface: {}", 
                         handler.getClass().getSimpleName());
@@ -221,6 +211,13 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
                     representationSchemas.put(repName, schema);
                     log.debug("Created schema for {} representation: {}", repName, schemaName);
                 }
+            }
+            Schema<?> customSchema = generateCustomRepresentationSchema(resourceType, allProperties, components);
+            if (customSchema != null) {
+                String customSchemaName = capitalize(resourceType) + "Custom";
+                components.addSchemas(customSchemaName, customSchema);
+                representationSchemas.put("custom", customSchema);
+                log.debug("Created schema for custom representation: {}", customSchemaName);
             }
             
             if (representationSchemas.isEmpty()) {
@@ -260,7 +257,7 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
                 
                 if (javaType == null) {
                     log.warn("Property '{}' not found in introspection results, using fallback", propertyName);
-                    javaType = "String"; // Fallback
+                    javaType = "String";
                 }
                 
                 Schema<?> propertySchema = mapToSwaggerSchema(javaType, components);
@@ -274,6 +271,31 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
             log.warn("Could not generate schema for representation {}: {}", representation, e.getMessage());
             return null;
         }
+    }
+    
+    /**
+     * Generates a schema for the custom representation, including all possible properties.
+     */
+    private Schema<?> generateCustomRepresentationSchema(String resourceType, Map<String, String> allProperties, Components components) {
+        if (allProperties == null || allProperties.isEmpty()) {
+            log.warn("No properties found for custom representation of {}", resourceType);
+            return null;
+        }
+        ObjectSchema schema = new ObjectSchema();
+        schema.setDescription("Custom representation - specify any subset of these properties in the ?v=custom:(...) query parameter");
+        Map<String, Schema> schemaProperties = new HashMap<>();
+        for (Map.Entry<String, String> entry : allProperties.entrySet()) {
+            String propertyName = entry.getKey();
+            String javaType = entry.getValue();
+            if (javaType == null) {
+                log.warn("Property '{}' not found in introspection results, using fallback", propertyName);
+                javaType = "String";
+            }
+            Schema<?> propertySchema = mapToSwaggerSchema(javaType, components);
+            schemaProperties.put(propertyName, propertySchema);
+        }
+        schema.setProperties(schemaProperties);
+        return schema;
     }
     
     private Schema<?> mapToSwaggerSchema(String javaType, Components components) {
@@ -325,13 +347,24 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
         vParam.setName("v");
         vParam.setIn("query");
         vParam.setRequired(false);
-        vParam.setDescription("The representation to return. Allowed values: 'default', 'full', 'ref'");
+        vParam.setDescription("The representation to return. Allowed values: 'default', 'full', 'ref', or a custom representation string. For custom, use e.g. custom:(uuid,display,name,person:(uuid,display))");
         
         StringSchema vSchema = new StringSchema();
         vSchema.addEnumItem("default");
         vSchema.addEnumItem("full");
         vSchema.addEnumItem("ref");
         vParam.setSchema(vSchema);
+        
+        Map<String, io.swagger.v3.oas.models.examples.Example> vExamples = new LinkedHashMap<>();
+        io.swagger.v3.oas.models.examples.Example exCustomBasic = new io.swagger.v3.oas.models.examples.Example();
+        exCustomBasic.setSummary("Custom (basic)");
+        exCustomBasic.setValue("custom:(uuid,display,name)");
+        vExamples.put("customBasic", exCustomBasic);
+        io.swagger.v3.oas.models.examples.Example exCustomNested = new io.swagger.v3.oas.models.examples.Example();
+        exCustomNested.setSummary("Custom (nested)");
+        exCustomNested.setValue("custom:(uuid,display,person:(uuid,display))");
+        vExamples.put("customNested", exCustomNested);
+        vParam.setExamples(vExamples);
         parameters.add(vParam);
         
         getOperation.setParameters(parameters);
@@ -364,20 +397,16 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
         content.addMediaType("application/json", mediaType);
         response200.setContent(content);
         
-        // Add comprehensive response codes
         responses.addApiResponse("200", response200);
         
-        // Add 404 response
         ApiResponse response404 = new ApiResponse();
         response404.setDescription("Resource with given UUID doesn't exist");
         responses.addApiResponse("404", response404);
         
-        // Add 401 response
         ApiResponse response401 = new ApiResponse();
         response401.setDescription("User not logged in");
         responses.addApiResponse("401", response401);
         
-        // Add 400 response
         ApiResponse response400 = new ApiResponse();
         response400.setDescription("Bad request - invalid parameters");
         responses.addApiResponse("400", response400);
@@ -425,7 +454,6 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
             
             String genericType = parameterizedType.substring(start, end);
             
-            // Handle nested generics by finding the first comma that's not inside nested brackets
             int bracketCount = 0;
             int commaIndex = -1;
             
@@ -461,7 +489,6 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
             return false;
         }
         
-        // Check if this type is in our discovered REST domain types
         boolean isRestDomainType = restDomainTypes.contains(javaType);
         
         if (isRestDomainType) {
