@@ -17,6 +17,7 @@ import org.openmrs.plugin.rest.analyzer.introspection.SchemaIntrospectionService
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import io.swagger.v3.oas.models.media.Discriminator;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.Components;
@@ -389,7 +390,7 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
         }
         responseSchema.setOneOf(oneOfSchemas);
 
-        io.swagger.v3.oas.models.media.Discriminator discriminator = new io.swagger.v3.oas.models.media.Discriminator();
+        Discriminator discriminator = new Discriminator();
         discriminator.setPropertyName("v");
         discriminator.setMapping(mapping);
         responseSchema.setDiscriminator(discriminator);

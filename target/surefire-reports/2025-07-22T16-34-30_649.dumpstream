@@ -1,5 +1,0 @@
-# Created at 2025-07-22T16:34:31.461
-Boot Manifest-JAR contains absolute paths in classpath 'D:\Work\openmrs\openmrs-rest-representation-analyzer\target\test-classes'
-Hint: <argLine>-Djdk.net.URLClassPath.disableClassPathURLCheck=true</argLine>
-'other' has different root
-
