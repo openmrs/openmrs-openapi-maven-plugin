@@ -195,8 +195,12 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
                 return false;
             }
             
-            Map<String, String> allProperties = schemaIntrospectionService.discoverResourceProperties((org.openmrs.module.webservices.rest.web.resource.api.Resource) handler);
-            log.debug("Discovered {} properties for {}", allProperties.size(), resourceType);
+            // Start with introspected properties from delegate class
+            Map<String, String> introspectedProperties = schemaIntrospectionService.discoverResourceProperties((org.openmrs.module.webservices.rest.web.resource.api.Resource) handler);
+            log.debug("Discovered {} introspected properties for {}", introspectedProperties.size(), resourceType);
+            
+            // Collect all properties from representation descriptions
+            Map<String, String> allRepresentationProperties = new LinkedHashMap<>(introspectedProperties);
             
             Map<String, Schema<?>> representationSchemas = new LinkedHashMap<>();
             List<String> representations = Arrays.asList("default", "full", "ref");
@@ -205,7 +209,7 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
                 Representation representation = getRepresentationByName(repName);
                 if (representation == null) continue;
                 
-                Schema<?> schema = generateRepresentationSchema(handler, representation, allProperties, components);
+                Schema<?> schema = generateRepresentationSchema(handler, representation, allRepresentationProperties, components);
                 if (schema != null) {
                     String schemaName = capitalize(resourceType) + capitalize(repName); // e.g., "PatientDefault"
                     components.addSchemas(schemaName, schema);
@@ -213,7 +217,11 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
                     log.debug("Created schema for {} representation: {}", repName, schemaName);
                 }
             }
-            Schema<?> customSchema = generateCustomRepresentationSchema(resourceType, allProperties, components);
+            
+            // Now allRepresentationProperties contains both introspected + representation description properties
+            log.debug("Total properties (introspected + representations) for {}: {}", resourceType, allRepresentationProperties.size());
+            
+            Schema<?> customSchema = generateCustomRepresentationSchema(resourceType, allRepresentationProperties, components);
             if (customSchema != null) {
                 String customSchemaName = capitalize(resourceType) + "Custom";
                 components.addSchemas(customSchemaName, customSchema);
@@ -251,11 +259,20 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
             
             ObjectSchema schema = new ObjectSchema();
             
+            @SuppressWarnings("rawtypes")
             Map<String, Schema> schemaProperties = new HashMap<>();
             for (Map.Entry<String, DelegatingResourceDescription.Property> entry : description.getProperties().entrySet()) {
                 String propertyName = entry.getKey();
-                String javaType = allProperties.get(propertyName);
                 
+                // Add this property to the shared allProperties map for custom representation
+                // Use a generic type if we don't have specific type info
+                if (!allProperties.containsKey(propertyName)) {
+                    allProperties.put(propertyName, "Object (from " + representation.getClass().getSimpleName() + ")");
+                    log.debug("Added property '{}' from {} representation to shared properties", 
+                             propertyName, representation.getClass().getSimpleName());
+                }
+                
+                String javaType = allProperties.get(propertyName);
                 if (javaType == null) {
                     log.warn("Property '{}' not found in introspection results, using fallback", propertyName);
                     javaType = "String";
@@ -284,6 +301,7 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
         }
         ObjectSchema schema = new ObjectSchema();
         schema.setDescription("Custom representation - specify any subset of these properties in the ?v=custom:(...) query parameter");
+        @SuppressWarnings("rawtypes")
         Map<String, Schema> schemaProperties = new HashMap<>();
         for (Map.Entry<String, String> entry : allProperties.entrySet()) {
             String propertyName = entry.getKey();
@@ -379,6 +397,7 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
         MediaType mediaType = new MediaType();
         
         ObjectSchema responseSchema = new ObjectSchema();
+        @SuppressWarnings("rawtypes")
         List<Schema> oneOfSchemas = new ArrayList<>();
         Map<String, String> mapping = new LinkedHashMap<>();
         for (Map.Entry<String, Schema<?>> entry : representationSchemas.entrySet()) {
