@@ -14,6 +14,7 @@ import org.openmrs.module.webservices.rest.web.representation.Representation;
 import org.openmrs.web.test.jupiter.BaseModuleWebContextSensitiveTest;
 import org.openmrs.plugin.rest.analyzer.introspection.SchemaIntrospectionService;
 import org.openmrs.plugin.rest.analyzer.introspection.SchemaIntrospectionServiceImpl;
+import org.openmrs.plugin.rest.analyzer.introspection.PropertyTypeResolver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -53,6 +54,7 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
     private static final String OUTPUT_FILE = "openapi-spec-output.json";
     
     private SchemaIntrospectionService schemaIntrospectionService;
+    private PropertyTypeResolver propertyTypeResolver;
     private Set<String> restDomainTypes = new HashSet<>();
     
     @BeforeEach
@@ -70,6 +72,9 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
         schemaIntrospectionService = new SchemaIntrospectionServiceImpl();
         
         buildRestDomainTypeSet(restService);
+        
+        // Initialize PropertyTypeResolver with dependencies
+        propertyTypeResolver = new PropertyTypeResolver(schemaIntrospectionService);
         
         log.info("=== Setup Complete ===");
     }
@@ -263,22 +268,19 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
             Map<String, Schema> schemaProperties = new HashMap<>();
             for (Map.Entry<String, DelegatingResourceDescription.Property> entry : description.getProperties().entrySet()) {
                 String propertyName = entry.getKey();
+                DelegatingResourceDescription.Property property = entry.getValue();
                 
-                // Add this property to the shared allProperties map for custom representation
-                // Use a generic type if we don't have specific type info
-                if (!allProperties.containsKey(propertyName)) {
-                    allProperties.put(propertyName, "Object (from " + representation.getClass().getSimpleName() + ")");
-                    log.debug("Added property '{}' from {} representation to shared properties", 
-                             propertyName, representation.getClass().getSimpleName());
-                }
+                // ENHANCED: Use PropertyTypeResolver for accurate type determination
+                String accurateType = propertyTypeResolver.determineAccuratePropertyType(
+                    propertyName, property, handler, allProperties);
                 
-                String javaType = allProperties.get(propertyName);
-                if (javaType == null) {
-                    log.warn("Property '{}' not found in introspection results, using fallback", propertyName);
-                    javaType = "String";
-                }
+                // Add/update the property with accurate type in the shared map
+                allProperties.put(propertyName, accurateType);
                 
-                Schema<?> propertySchema = mapToSwaggerSchema(javaType, components);
+                log.debug("Property '{}' resolved to accurate type: {} (from {} representation)", 
+                         propertyName, accurateType, representation.getClass().getSimpleName());
+                
+                Schema<?> propertySchema = mapToSwaggerSchema(accurateType, components);
                 schemaProperties.put(propertyName, propertySchema);
             }
             schema.setProperties(schemaProperties);
@@ -320,29 +322,56 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
     private Schema<?> mapToSwaggerSchema(String javaType, Components components) {
         if (javaType == null) return new StringSchema();
         
+        // Handle collection types first
         if (isCollectionType(javaType)) {
             String itemType = extractGenericType(javaType);
             Schema<?> itemSchema = mapToSwaggerSchema(itemType, components);
             return new ArraySchema().items(itemSchema);
         }
         
-        String lowerType = javaType.toLowerCase();
-        if (lowerType.contains("string") || lowerType.equals("string")) {
+        // Clean up the type string and handle enhanced type patterns
+        String cleanType = cleanTypeString(javaType);
+        String lowerType = cleanType.toLowerCase();
+        
+        // Enhanced primitive type mapping
+        if (lowerType.equals("string") || lowerType.contains("string")) {
             return new StringSchema();
-        } else if (lowerType.contains("int") || lowerType.contains("long") || lowerType.equals("integer")) {
+        } else if (lowerType.equals("integer") || lowerType.equals("int") || lowerType.contains("int")) {
             return new IntegerSchema();
-        } else if (lowerType.contains("double") || lowerType.contains("float") || lowerType.equals("number")) {
+        } else if (lowerType.equals("long") || lowerType.contains("long")) {
+            return new IntegerSchema().format("int64");
+        } else if (lowerType.equals("double") || lowerType.equals("float") || lowerType.equals("number") || lowerType.contains("double") || lowerType.contains("float")) {
             return new NumberSchema();
-        } else if (lowerType.contains("boolean") || lowerType.equals("boolean")) {
+        } else if (lowerType.equals("boolean") || lowerType.contains("boolean")) {
             return new BooleanSchema();
-        } else if (lowerType.contains("date") || lowerType.equals("date")) {
+        } else if (lowerType.equals("date") || lowerType.contains("date") || lowerType.contains("time")) {
             return new StringSchema().format("date-time");
-        } else if (isOpenMRSDomainType(javaType)) {
-            String refName = capitalize(javaType);
+        } else if (isOpenMRSDomainType(cleanType)) {
+            // Generate $ref for OpenMRS domain types
+            String refName = capitalize(cleanType);
             return new Schema<>().$ref("#/components/schemas/" + refName);
+        } else if (lowerType.startsWith("object (from")) {
+            // Handle fallback "Object (from XxxRepresentation)" types
+            return new ObjectSchema().description("Type determined from " + javaType);
         } else {
-            return new ObjectSchema();
+            // Generic object for unknown types
+            return new ObjectSchema().description("Complex type: " + javaType);
         }
+    }
+    
+    /**
+     * Cleans up type strings by removing representation source information
+     */
+    private String cleanTypeString(String javaType) {
+        if (javaType == null) return "String";
+        
+        // Remove " (from XxxRepresentation)" suffixes
+        int fromIndex = javaType.indexOf(" (from ");
+        if (fromIndex > 0) {
+            return javaType.substring(0, fromIndex).trim();
+        }
+        
+        return javaType.trim();
     }
     
     private PathItem createPathItem(String resourceType, Map<String, Schema<?>> representationSchemas) {
@@ -502,21 +531,36 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
     
     /**
      * Determines if a Java type should be treated as an OpenMRS domain type for $ref generation.
-     * Uses contextual REST discovery to ensure only types actually exposed via REST are included.
+     * Enhanced to handle cleaned type strings and better domain type detection.
      */
     private boolean isOpenMRSDomainType(String javaType) {
         if (javaType == null) {
             return false;
         }
         
-        boolean isRestDomainType = restDomainTypes.contains(javaType);
+        // Clean the type string first
+        String cleanType = cleanTypeString(javaType);
+        
+        // Check against discovered REST domain types
+        boolean isRestDomainType = restDomainTypes.contains(cleanType);
         
         if (isRestDomainType) {
-            log.debug("Treating '{}' as domain type (discovered via REST)", javaType);
+            log.debug("Treating '{}' as domain type (discovered via REST)", cleanType);
             return true;
         }
         
-        log.debug("Treating '{}' as generic object (not discovered via REST)", javaType);
+        // Check against known OpenMRS core domain types even if not in REST
+        Set<String> knownDomainTypes = new HashSet<>(Arrays.asList(
+            "Person", "Patient", "User", "Provider", "Encounter", "Visit", "Obs", "Order",
+            "Concept", "Drug", "Location", "Program", "Role", "Privilege", "Form", "Field"
+        ));
+        
+        if (knownDomainTypes.contains(cleanType)) {
+            log.debug("Treating '{}' as known OpenMRS domain type", cleanType);
+            return true;
+        }
+        
+        log.debug("Treating '{}' as generic object (not a recognized domain type)", cleanType);
         return false;
     }
     
