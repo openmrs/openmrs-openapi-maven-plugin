@@ -55,40 +55,61 @@ public class PropertyTypeResolver {
                                                DelegatingResourceHandler<?> handler,
                                                Map<String, String> introspectedProperties) {
         
-        log.debug("Resolving type for property: {}", propertyName);
+        
+        log.debug("=== RESOLVING TYPE FOR PROPERTY: {} ===", propertyName);
+        log.debug("Handler class: {}", handler.getClass().getSimpleName());
+        log.debug("Introspected properties contains '{}': {}", propertyName, introspectedProperties.containsKey(propertyName));
         
         // Strategy 1: Use introspected type (highest accuracy)
         if (introspectedProperties.containsKey(propertyName)) {
             String introspectedType = introspectedProperties.get(propertyName);
-            log.debug("Found introspected type for '{}': {}", propertyName, introspectedType);
+            log.debug("STRATEGY 1 SUCCESS - Found introspected type for '{}': {}", propertyName, introspectedType);
             return introspectedType;
         }
         
         // Strategy 2: Resolve from representation metadata
         String representationType = resolveFromRepresentationMetadata(propertyName, property, handler);
         if (representationType != null) {
-            log.debug("Resolved type from representation metadata for '{}': {}", propertyName, representationType);
-            return representationType;
+            log.debug("STRATEGY 2 RESULT - Resolved type from representation metadata for '{}': {}", propertyName, representationType);
+            // Check if this is actually a meaningful type or just a representation level
+            if (isRepresentationType(representationType)) {
+                log.debug("STRATEGY 2 REJECTED - '{}' is a representation type, not a Java type", representationType);
+            } else {
+                log.debug("STRATEGY 2 SUCCESS - Using representation metadata type: {}", representationType);
+                return representationType;
+            }
         }
         
         // Strategy 3: Reflect on delegate class directly
+        log.debug("STRATEGY 3 - Attempting direct reflection on delegate class...");
         String reflectedType = reflectPropertyType(propertyName, handler);
         if (reflectedType != null) {
-            log.debug("Reflected type for '{}': {}", propertyName, reflectedType);
+            log.debug("STRATEGY 3 SUCCESS - Reflected type for '{}': {}", propertyName, reflectedType);
             return reflectedType;
         }
         
         // Strategy 4: Try to resolve by examining the actual property implementation in the resource
+        log.debug("STRATEGY 4 - Attempting resource method resolution...");
         String resourceMethodType = resolveFromResourceMethods(propertyName, handler);
         if (resourceMethodType != null) {
-            log.debug("Resolved type from resource methods for '{}': {}", propertyName, resourceMethodType);
+            log.debug("STRATEGY 4 SUCCESS - Resolved type from resource methods for '{}': {}", propertyName, resourceMethodType);
             return resourceMethodType;
         }
         
         // Strategy 5: Conservative pattern matching (last resort)
+        log.debug("STRATEGY 5 - All strategies failed, using conservative inference...");
         String inferredType = inferTypeFromPropertyName(propertyName);
-        log.debug("Using conservative inference for '{}': {}", propertyName, inferredType);
+        log.debug("FINAL RESULT - Using conservative inference for '{}': {}", propertyName, inferredType);
+        log.debug("=== TYPE RESOLUTION COMPLETE FOR: {} -> {} ===", propertyName, inferredType);
         return inferredType;
+    }
+    
+    /**
+     * Check if the type is actually a representation type rather than a Java type
+     */
+    private boolean isRepresentationType(String type) {
+        return "REF".equals(type) || "DEFAULT".equals(type) || "FULL".equals(type) || 
+               "Full".equals(type) || "Default".equals(type) || "Ref".equals(type);
     }
     
     /**
@@ -239,24 +260,39 @@ public class PropertyTypeResolver {
     private String reflectPropertyType(String propertyName, DelegatingResourceHandler<?> handler) {
         try {
             if (!(handler instanceof Resource)) {
+                log.debug("Handler {} is not a Resource, skipping reflection", handler.getClass().getSimpleName());
                 return null;
             }
             
             Class<?> delegateType = schemaIntrospectionService.getDelegateType((Resource) handler);
             if (delegateType == null) {
+                log.debug("No delegate type found for handler {}", handler.getClass().getSimpleName());
                 return null;
             }
             
+            log.debug("Reflecting property '{}' on delegate type: {}", propertyName, delegateType.getName());
+            
             PropertyDescriptor[] descriptors = BeanUtils.getPropertyDescriptors(delegateType);
+            log.debug("Found {} property descriptors on {}", descriptors.length, delegateType.getSimpleName());
+            
             for (PropertyDescriptor descriptor : descriptors) {
                 if (descriptor.getName().equals(propertyName)) {
-                    Type propertyType = descriptor.getReadMethod().getGenericReturnType();
-                    return getTypeName(propertyType);
+                    if (descriptor.getReadMethod() != null) {
+                        Type propertyType = descriptor.getReadMethod().getGenericReturnType();
+                        String typeName = getTypeName(propertyType);
+                        log.debug("FOUND property '{}' via PropertyDescriptor with type: {} (method: {})", 
+                                propertyName, typeName, descriptor.getReadMethod().getName());
+                        return typeName;
+                    } else {
+                        log.debug("Property '{}' found but has no read method", propertyName);
+                    }
                 }
             }
             
+            log.debug("Property '{}' NOT FOUND in PropertyDescriptors on {}", propertyName, delegateType.getSimpleName());
+            
         } catch (Exception e) {
-            log.debug("Could not reflect property type for '{}': {}", propertyName, e.getMessage());
+            log.error("Error reflecting property type for '{}': {}", propertyName, e.getMessage(), e);
         }
         
         return null;
