@@ -35,19 +35,16 @@ public class ModuleClasspathBuilder {
         
         List<String> classpath = new ArrayList<>();
         
-        // 1. CRITICAL: Add plugin's test JAR first (contains OpenmrsOpenapiSpecGeneratorTest)
         String pluginTestJar = resolvePluginTestJar();
         classpath.add(pluginTestJar);
         log.info("Added plugin test JAR: {}", pluginTestJar);
         
-        // 2. Add plugin's main JAR (contains Swagger dependencies)
         String pluginMainJar = resolvePluginMainJar();
         if (pluginMainJar != null) {
             classpath.add(pluginMainJar);
             log.info("Added plugin main JAR: {}", pluginMainJar);
         }
         
-        // 3. Add critical Swagger dependencies explicitly
         List<String> swaggerJars = resolveSwaggerDependencies();
         for (String swaggerJar : swaggerJars) {
             classpath.add(swaggerJar);
@@ -57,7 +54,6 @@ public class ModuleClasspathBuilder {
             log.info("Added {} Swagger dependency JARs", swaggerJars.size());
         }
         
-        // 4. Add JUnit Platform dependencies for JUnit 5 support
         List<String> junitJars = resolveJUnitPlatformDependencies();
         for (String junitJar : junitJars) {
             classpath.add(junitJar);
@@ -67,21 +63,18 @@ public class ModuleClasspathBuilder {
             log.info("Added {} JUnit Platform dependency JARs", junitJars.size());
         }
         
-        // 2. Target module's compiled classes
         String outputDir = project.getBuild().getOutputDirectory();
         if (outputDir != null) {
             classpath.add(outputDir);
             log.debug("Added module classes: {}", outputDir);
         }
         
-        // 3. Target module's test classes (required for BaseModuleWebContextSensitiveTest)
         String testOutputDir = project.getBuild().getTestOutputDirectory();
         if (testOutputDir != null) {
             classpath.add(testOutputDir);
             log.debug("Added module test classes: {}", testOutputDir);
         }
         
-        // 4. All target module's dependencies (including transitive)
         int dependencyCount = 0;
         for (Object artifactObj : project.getTestArtifacts()) {
             Artifact artifact = (Artifact) artifactObj;
@@ -91,7 +84,6 @@ public class ModuleClasspathBuilder {
                 classpath.add(file.getAbsolutePath());
                 dependencyCount++;
                 
-                // Log important dependencies
                 if (isImportantDependency(artifact)) {
                     log.debug("Added important dependency: {}:{}", 
                             artifact.getGroupId(), artifact.getArtifactId());
@@ -117,21 +109,18 @@ public class ModuleClasspathBuilder {
      */
     private static String resolvePluginTestJar() {
         
-        // Strategy 1: Development environment (plugin's own target directory)
         String devTestJar = tryDevelopmentEnvironment();
         if (devTestJar != null) {
             log.debug("Using development test JAR: {}", devTestJar);
             return devTestJar;
         }
         
-        // Strategy 2: Maven repository
         String repoTestJar = tryMavenRepository();
         if (repoTestJar != null) {
             log.debug("Using repository test JAR: {}", repoTestJar);
             return repoTestJar;
         }
         
-        // Strategy 3: Fail with helpful message
         throw new RuntimeException(createHelpfulErrorMessage());
     }
     
@@ -142,14 +131,12 @@ public class ModuleClasspathBuilder {
      */
     private static String resolvePluginMainJar() {
         
-        // Strategy 1: Development environment (plugin's own target directory)
         String devMainJar = tryDevelopmentMainJar();
         if (devMainJar != null) {
             log.debug("Using development main JAR: {}", devMainJar);
             return devMainJar;
         }
         
-        // Strategy 2: Maven repository
         String repoMainJar = tryMavenRepositoryMainJar();
         if (repoMainJar != null) {
             log.debug("Using repository main JAR: {}", repoMainJar);
@@ -169,7 +156,6 @@ public class ModuleClasspathBuilder {
         List<String> swaggerJars = new ArrayList<>();
         String[] repoPaths = getMavenRepositoryPaths();
         
-        // Critical Swagger dependencies with versions
         String[][] dependencies = {
             {"io.swagger.core.v3", "swagger-models", "2.2.15"},
             {"io.swagger.core.v3", "swagger-core", "2.2.15"},
@@ -195,7 +181,6 @@ public class ModuleClasspathBuilder {
                 }
             }
             
-            // If we found dependencies in this repo, use them
             if (!swaggerJars.isEmpty()) {
                 break;
             }
@@ -210,12 +195,10 @@ public class ModuleClasspathBuilder {
     private static List<String> resolveJUnitPlatformDependencies() {
         List<String> junitJars = new ArrayList<>();
         
-        // Define JUnit Platform dependencies [groupId, artifactId, version]
         String[][] dependencies = {
             {"org.junit.platform", "junit-platform-console-standalone", "1.8.2"}
         };
         
-        // Get the local Maven repository paths
         String[] repoPaths = getMavenRepositoryPaths();
         
         for (String repoPath : repoPaths) {
@@ -236,7 +219,6 @@ public class ModuleClasspathBuilder {
                 }
             }
             
-            // If we found dependencies in this repo, use them
             if (!junitJars.isEmpty()) {
                 break;
             }
@@ -250,7 +232,6 @@ public class ModuleClasspathBuilder {
      */
     private static String tryDevelopmentEnvironment() {
         try {
-            // Check if we're running from the plugin's own directory
             File currentDir = new File(System.getProperty("user.dir"));
             File targetDir = new File(currentDir, "target");
             
@@ -264,7 +245,6 @@ public class ModuleClasspathBuilder {
                 }
             }
             
-            // Also check parent directories (in case we're in a submodule)
             File parentDir = currentDir.getParentFile();
             if (parentDir != null) {
                 File parentTarget = new File(parentDir, "openmrs-rest-representation-analyzer/target");
@@ -363,7 +343,6 @@ public class ModuleClasspathBuilder {
         try {
             File currentDir = new File(".");
             
-            // Check plugin's target directory for main JAR
             File targetDir = new File(currentDir, "target");
             if (targetDir.exists()) {
                 File[] mainJars = targetDir.listFiles((dir, name) -> 
@@ -379,7 +358,6 @@ public class ModuleClasspathBuilder {
                 }
             }
             
-            // Also check parent directories (in case we're in a submodule)
             File parentDir = currentDir.getParentFile();
             if (parentDir != null) {
                 File parentTarget = new File(parentDir, "openmrs-rest-representation-analyzer/target");
@@ -462,20 +440,17 @@ public class ModuleClasspathBuilder {
         
         List<String> packages = new ArrayList<>();
         
-        // Standard OpenMRS module patterns
         if (groupId.equals("org.openmrs.module")) {
             packages.add("org.openmrs.module." + moduleName + ".web.resources");
             packages.add("org.openmrs.module." + moduleName + ".web.resource");
             packages.add("org.openmrs.module." + moduleName + ".rest.resources");
         }
         
-        // Special case for webservices.rest module
         if (moduleName.equals("webservices.rest")) {
             packages.add("org.openmrs.module.webservices.rest.web.v1_0.resource");
             packages.add("org.openmrs.module.webservices.rest.web.v2_0.resource");
         }
         
-        // Generic fallback patterns
         packages.add(groupId + "." + moduleName + ".web.resources");
         packages.add(groupId + ".web.resources");
         

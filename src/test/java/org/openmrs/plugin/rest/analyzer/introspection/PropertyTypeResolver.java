@@ -55,23 +55,19 @@ public class PropertyTypeResolver {
                                                DelegatingResourceHandler<?> handler,
                                                Map<String, String> introspectedProperties) {
         
-        
         log.debug("=== RESOLVING TYPE FOR PROPERTY: {} ===", propertyName);
         log.debug("Handler class: {}", handler.getClass().getSimpleName());
         log.debug("Introspected properties contains '{}': {}", propertyName, introspectedProperties.containsKey(propertyName));
         
-        // Strategy 1: Use introspected type (highest accuracy)
         if (introspectedProperties.containsKey(propertyName)) {
             String introspectedType = introspectedProperties.get(propertyName);
             log.debug("STRATEGY 1 SUCCESS - Found introspected type for '{}': {}", propertyName, introspectedType);
             return introspectedType;
         }
         
-        // Strategy 2: Resolve from representation metadata
         String representationType = resolveFromRepresentationMetadata(propertyName, property, handler);
         if (representationType != null) {
             log.debug("STRATEGY 2 RESULT - Resolved type from representation metadata for '{}': {}", propertyName, representationType);
-            // Check if this is actually a meaningful type or just a representation level
             if (isRepresentationType(representationType)) {
                 log.debug("STRATEGY 2 REJECTED - '{}' is a representation type, not a Java type", representationType);
             } else {
@@ -80,7 +76,6 @@ public class PropertyTypeResolver {
             }
         }
         
-        // Strategy 3: Reflect on delegate class directly
         log.debug("STRATEGY 3 - Attempting direct reflection on delegate class...");
         String reflectedType = reflectPropertyType(propertyName, handler);
         if (reflectedType != null) {
@@ -88,7 +83,6 @@ public class PropertyTypeResolver {
             return reflectedType;
         }
         
-        // Strategy 4: Try to resolve by examining the actual property implementation in the resource
         log.debug("STRATEGY 4 - Attempting resource method resolution...");
         String resourceMethodType = resolveFromResourceMethods(propertyName, handler);
         if (resourceMethodType != null) {
@@ -96,7 +90,6 @@ public class PropertyTypeResolver {
             return resourceMethodType;
         }
         
-        // Strategy 5: Conservative pattern matching (last resort)
         log.debug("STRATEGY 5 - All strategies failed, using conservative inference...");
         String inferredType = inferTypeFromPropertyName(propertyName);
         log.debug("FINAL RESULT - Using conservative inference for '{}': {}", propertyName, inferredType);
@@ -120,7 +113,6 @@ public class PropertyTypeResolver {
         try {
             Class<?> resourceClass = handler.getClass();
             
-            // Look for PropertyGetter annotated methods
             Method[] methods = resourceClass.getDeclaredMethods();
             for (Method method : methods) {
                 org.openmrs.module.webservices.rest.web.annotation.PropertyGetter propertyGetter = 
@@ -132,7 +124,6 @@ public class PropertyTypeResolver {
                 }
             }
             
-            // Look for conventional getter methods (getPropertyName)
             String getterName = "get" + Character.toUpperCase(propertyName.charAt(0)) + propertyName.substring(1);
             try {
                 Method getter = resourceClass.getMethod(getterName, handler.getClass().getTypeParameters()[0].getClass());
@@ -160,7 +151,6 @@ public class PropertyTypeResolver {
                                                    DelegatingResourceDescription.Property property,
                                                    DelegatingResourceHandler<?> handler) {
         try {
-            // Strategy 1: Check convertAs type (highest priority)
             Class<?> convertAsType = property.getConvertAs();
             if (convertAsType != null) {
                 String typeName = getTypeName(convertAsType);
@@ -168,7 +158,6 @@ public class PropertyTypeResolver {
                 return typeName;
             }
             
-            // Strategy 2: Extract type from method signature
             Method method = property.getMethod();
             if (method != null) {
                 Type returnType = method.getGenericReturnType();
@@ -177,7 +166,6 @@ public class PropertyTypeResolver {
                 return typeName;
             }
             
-            // Strategy 3: Use delegate property name to reflect on delegate class
             String delegateProperty = property.getDelegateProperty();
             if (delegateProperty != null && !delegateProperty.equals(propertyName)) {
                 String delegateType = reflectDelegatePropertyType(delegateProperty, handler);
@@ -187,7 +175,6 @@ public class PropertyTypeResolver {
                 }
             }
             
-            // Strategy 4: Infer from representation type
             Representation representation = property.getRep();
             if (representation != null) {
                 return resolveRepresentationType(propertyName, representation, handler);
@@ -234,21 +221,18 @@ public class PropertyTypeResolver {
      * Uses reflection-based discovery instead of fragile name pattern matching
      */
     private String resolveRepresentationType(String propertyName, Representation representation, DelegatingResourceHandler<?> handler) {
-        // First try to get the actual type through reflection on the delegate class
         String reflectedType = reflectPropertyType(propertyName, handler);
         if (reflectedType != null) {
             log.debug("Found reflected type for representation property '{}': {}", propertyName, reflectedType);
             return reflectedType;
         }
         
-        // Try reflection on common OpenMRS classes
         String commonClassType = reflectFromCommonOpenMRSClasses(propertyName);
         if (commonClassType != null) {
             log.debug("Found type from common OpenMRS classes for '{}': {}", propertyName, commonClassType);
             return commonClassType;
         }
         
-        // Only use very safe, unambiguous patterns as absolute last resort
         String safeType = resolveSafePatterns(propertyName);
         log.debug("Using safe pattern fallback for '{}': {}", propertyName, safeType);
         return safeType;
@@ -305,21 +289,18 @@ public class PropertyTypeResolver {
     private String inferTypeFromPropertyName(String propertyName) {
         if (propertyName == null) return "String";
         
-        // Strategy 1: Try to find the property via reflection on common OpenMRS base classes
         String reflectedType = reflectFromCommonOpenMRSClasses(propertyName);
         if (reflectedType != null) {
             log.debug("Found type via reflection on common classes for '{}': {}", propertyName, reflectedType);
             return reflectedType;
         }
         
-        // Strategy 2: Use PropertyGetter annotations from resource classes
         String annotationBasedType = resolveFromPropertyGetterAnnotations(propertyName);
         if (annotationBasedType != null) {
             log.debug("Found type via PropertyGetter annotations for '{}': {}", propertyName, annotationBasedType);
             return annotationBasedType;
         }
         
-        // Strategy 3: Only use safe pattern matching for very common, unambiguous cases
         String safePatternType = resolveSafePatterns(propertyName);
         log.debug("Using safe pattern type for '{}': {}", propertyName, safePatternType);
         return safePatternType;
@@ -329,7 +310,6 @@ public class PropertyTypeResolver {
      * Reflects on common OpenMRS base classes to find property types
      */
     private String reflectFromCommonOpenMRSClasses(String propertyName) {
-        // Common base classes that most OpenMRS domain objects extend
         Class<?>[] commonBaseClasses = {
             tryLoadClass("org.openmrs.BaseOpenmrsObject"),
             tryLoadClass("org.openmrs.BaseOpenmrsMetadata"), 
@@ -379,17 +359,13 @@ public class PropertyTypeResolver {
      * Attempts to resolve property types from PropertyGetter annotations on resource classes
      */
     private String resolveFromPropertyGetterAnnotations(String propertyName) {
-        // This would need to scan known resource classes for PropertyGetter annotations
-        // For now, we'll implement a basic version that could be extended
-        
-        // Common PropertyGetter mappings we know about
         switch (propertyName) {
             case "display":
-                return "String"; // Most display methods return String
+                return "String";
             case "auditInfo":
-                return "SimpleObject"; // AuditInfo is typically SimpleObject
+                return "SimpleObject";
             case "links":
-                return "List<Link>"; // Links are typically List<Link>
+                return "List<Link>";
             default:
                 return null;
         }
@@ -399,7 +375,6 @@ public class PropertyTypeResolver {
      * Uses only very safe, unambiguous pattern matching
      */
     private String resolveSafePatterns(String propertyName) {
-        // Only handle absolutely certain patterns
         if (propertyName.equals("id")) {
             return "Integer";
         } else if (propertyName.equals("uuid")) {
@@ -413,9 +388,7 @@ public class PropertyTypeResolver {
             return "Date";
         }
         
-        // For collections, be more conservative
         if (propertyName.endsWith("s") && propertyName.length() > 3) {
-            // Only handle very common collection patterns
             if (propertyName.equals("roles")) return "List<Role>";
             if (propertyName.equals("privileges")) return "List<Privilege>";
             if (propertyName.equals("names")) return "List<PersonName>";
@@ -423,11 +396,9 @@ public class PropertyTypeResolver {
             if (propertyName.equals("identifiers")) return "List<PatientIdentifier>";
             if (propertyName.equals("attributes")) return "List<PersonAttribute>";
             
-            // Generic collection fallback
             return "List<Object>";
         }
         
-        // Conservative fallback - let the schema introspection handle it
         return "String";
     }
     
@@ -435,8 +406,6 @@ public class PropertyTypeResolver {
      * Helper method to get a user-friendly type name from a Type object
      */
     private String getTypeName(Type type) {
-        // Reuse the existing implementation from SchemaIntrospectionServiceImpl
-        // This could be extracted to a utility class if needed
         if (type instanceof Class) {
             return ((Class<?>) type).getSimpleName();
         } else if (type instanceof java.lang.reflect.ParameterizedType) {

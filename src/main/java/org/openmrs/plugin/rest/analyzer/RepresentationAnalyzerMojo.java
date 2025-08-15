@@ -40,7 +40,6 @@ public class RepresentationAnalyzerMojo extends AbstractMojo {
     @Parameter(defaultValue = "2.4.x", property = "openmrsVersion")
     private String openmrsVersion;
     
-    // New parameters for universal module support
     @Parameter(property = "scanPackages")
     private List<String> scanPackages;
     
@@ -55,7 +54,6 @@ public class RepresentationAnalyzerMojo extends AbstractMojo {
         log.debug("Project: {}", project.getName());
         log.debug("Output directory: {}", outputDirectory);
         
-        // Auto-detect scan packages if not specified
         if (autoDetectResources && (scanPackages == null || scanPackages.isEmpty())) {
             scanPackages = ModuleClasspathBuilder.detectResourcePackages(project);
             log.info("Auto-detected resource packages: {}", scanPackages);
@@ -105,7 +103,6 @@ public class RepresentationAnalyzerMojo extends AbstractMojo {
     
     private int runTestInForkedProcess() throws IOException, InterruptedException {
         
-        // Build target module's complete classpath using new builder
         List<String> classpath = ModuleClasspathBuilder.buildTargetModuleClasspath(project);
         String classpathString = String.join(File.pathSeparator, classpath);
         
@@ -117,7 +114,6 @@ public class RepresentationAnalyzerMojo extends AbstractMojo {
         command.add("-cp");
         command.add(classpathString);
         
-        // OpenMRS database configuration
         command.add("-DdatabaseUrl=jdbc:h2:mem:openmrs;DB_CLOSE_DELAY=-1");
         command.add("-DdatabaseDriver=org.h2.Driver");
         command.add("-DuseInMemoryDatabase=true");
@@ -125,19 +121,16 @@ public class RepresentationAnalyzerMojo extends AbstractMojo {
         command.add("-DdatabasePassword=");
         command.add("-Djava.awt.headless=true");
         
-        // Pass module-specific information to the test
         command.add("-Dtarget.module.groupId=" + project.getGroupId());
         command.add("-Dtarget.module.artifactId=" + project.getArtifactId());
         command.add("-Dtarget.module.version=" + project.getVersion());
         command.add("-Dtarget.module.packages=" + String.join(",", scanPackages));
         command.add("-Dtarget.module.classesDir=" + project.getBuild().getOutputDirectory());
         
-        // Analysis output configuration
         command.add("-DanalysisOutputDir=" + outputDirectory);
         command.add("-DanalysisOutputFile=" + outputFile);
         command.add("-Dopenmrs.version=" + openmrsVersion);
         
-        // Use JUnit Platform Console Standalone for JUnit 5 support
         command.add("org.junit.platform.console.ConsoleLauncher");
         command.add("--select-class");
         command.add("org.openmrs.plugin.rest.analyzer.test.OpenmrsOpenapiSpecGeneratorTest");

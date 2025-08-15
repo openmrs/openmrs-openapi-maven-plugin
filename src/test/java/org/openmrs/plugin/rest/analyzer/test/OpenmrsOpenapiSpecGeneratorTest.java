@@ -60,7 +60,6 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
     public void setup() throws Exception {
         log.info("=== Setting up OpenAPI Spec Generator Test ===");
         
-        // Get module information from system properties passed by the Mojo
         String targetModuleGroupId = System.getProperty("target.module.groupId", "unknown");
         String targetModuleArtifactId = System.getProperty("target.module.artifactId", "unknown");
         String targetModuleVersion = System.getProperty("target.module.version", "unknown");
@@ -79,14 +78,12 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
         
         schemaIntrospectionService = new SchemaIntrospectionServiceImpl();
         
-        // Build REST domain type set with optional package filtering
         List<String> scanPackages = scanPackagesStr.isEmpty() ? 
             new ArrayList<>() : 
             Arrays.asList(scanPackagesStr.split(","));
             
         buildRestDomainTypeSet(restService, scanPackages, targetModuleArtifactId);
         
-        // Initialize PropertyTypeResolver with dependencies
         propertyTypeResolver = new PropertyTypeResolver(schemaIntrospectionService);
         
         log.info("=== Setup Complete for {} ===", targetModuleArtifactId);
@@ -109,7 +106,6 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
         
         for (DelegatingResourceHandler<?> handler : handlers) {
             try {
-                // Filter by package if scan packages are specified
                 if (!scanPackages.isEmpty()) {
                     String handlerPackage = handler.getClass().getPackage().getName();
                     boolean matchesPackage = scanPackages.stream()
@@ -238,11 +234,9 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
                 return false;
             }
             
-            // Start with introspected properties from delegate class
             Map<String, String> introspectedProperties = schemaIntrospectionService.discoverResourceProperties((org.openmrs.module.webservices.rest.web.resource.api.Resource) handler);
             log.debug("Discovered {} introspected properties for {}", introspectedProperties.size(), resourceType);
             
-            // Collect all properties from representation descriptions
             Map<String, String> allRepresentationProperties = new LinkedHashMap<>(introspectedProperties);
             
             Map<String, Schema<?>> representationSchemas = new LinkedHashMap<>();
@@ -261,7 +255,6 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
                 }
             }
             
-            // Now allRepresentationProperties contains both introspected + representation description properties
             log.debug("Total properties (introspected + representations) for {}: {}", resourceType, allRepresentationProperties.size());
             
             Schema<?> customSchema = generateCustomRepresentationSchema(resourceType, allRepresentationProperties, components);
@@ -308,11 +301,9 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
                 String propertyName = entry.getKey();
                 DelegatingResourceDescription.Property property = entry.getValue();
                 
-                // ENHANCED: Use PropertyTypeResolver for accurate type determination
                 String accurateType = propertyTypeResolver.determineAccuratePropertyType(
                     propertyName, property, handler, allProperties);
                 
-                // Add/update the property with accurate type in the shared map
                 allProperties.put(propertyName, accurateType);
                 
                 log.debug("Property '{}' resolved to accurate type: {} (from {} representation)", 
@@ -360,18 +351,15 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
     private Schema<?> mapToSwaggerSchema(String javaType, Components components) {
         if (javaType == null) return new StringSchema();
         
-        // Handle collection types first
         if (isCollectionType(javaType)) {
             String itemType = extractGenericType(javaType);
             Schema<?> itemSchema = mapToSwaggerSchema(itemType, components);
             return new ArraySchema().items(itemSchema);
         }
         
-        // Clean up the type string and handle enhanced type patterns
         String cleanType = cleanTypeString(javaType);
         String lowerType = cleanType.toLowerCase();
         
-        // Enhanced primitive type mapping
         if (lowerType.equals("string") || lowerType.contains("string")) {
             return new StringSchema();
         } else if (lowerType.equals("integer") || lowerType.equals("int") || lowerType.contains("int")) {
@@ -385,14 +373,11 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
         } else if (lowerType.equals("date") || lowerType.contains("date") || lowerType.contains("time")) {
             return new StringSchema().format("date-time");
         } else if (isOpenMRSDomainType(cleanType)) {
-            // Generate $ref for OpenMRS domain types
             String refName = capitalize(cleanType);
             return new Schema<>().$ref("#/components/schemas/" + refName);
         } else if (lowerType.startsWith("object (from")) {
-            // Handle fallback "Object (from XxxRepresentation)" types
             return new ObjectSchema().description("Type determined from " + javaType);
         } else {
-            // Generic object for unknown types
             return new ObjectSchema().description("Complex type: " + javaType);
         }
     }
@@ -403,7 +388,6 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
     private String cleanTypeString(String javaType) {
         if (javaType == null) return "String";
         
-        // Remove " (from XxxRepresentation)" suffixes
         int fromIndex = javaType.indexOf(" (from ");
         if (fromIndex > 0) {
             return javaType.substring(0, fromIndex).trim();
@@ -576,10 +560,8 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
             return false;
         }
         
-        // Clean the type string first
         String cleanType = cleanTypeString(javaType);
         
-        // Check against discovered REST domain types
         boolean isRestDomainType = restDomainTypes.contains(cleanType);
         
         if (isRestDomainType) {
@@ -587,7 +569,6 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
             return true;
         }
         
-        // Check against known OpenMRS core domain types even if not in REST
         Set<String> knownDomainTypes = new HashSet<>(Arrays.asList(
             "Person", "Patient", "User", "Provider", "Encounter", "Visit", "Obs", "Order",
             "Concept", "Drug", "Location", "Program", "Role", "Privilege", "Form", "Field"
@@ -650,7 +631,6 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
     }
     
     private void writeOpenApiToFile(OpenAPI openAPI) throws Exception {
-        // Get output configuration from Mojo system properties
         String outputDirPath = System.getProperty("analysisOutputDir", "target");
         String outputFileName = System.getProperty("analysisOutputFile", "openapi-spec-output.json");
         

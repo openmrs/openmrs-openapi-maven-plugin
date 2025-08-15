@@ -90,7 +90,6 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <!-- Required for BaseModuleWebContextSensitiveTest and setting global properties-->
             <groupId>org.openmrs.web</groupId>
             <artifactId>openmrs-web</artifactId>
             <version>${openmrs.version}</version>
@@ -104,16 +103,11 @@
             <type>pom</type>
             <scope>test</scope>
         </dependency>
-        <!-- Module-specific dependencies will be provided by target module's classpath -->
-        <!-- Removed hardcoded webservices.rest dependencies for universal compatibility -->
-        
-        <!-- Minimal test dependencies for compilation only -->
         <dependency>
             <groupId>org.openmrs.module</groupId>
             <artifactId>webservices.rest-omod-common</artifactId>
             <version>${webservices.rest.version}</version>
             <scope>test</scope>
-            <!-- This is only for compilation - runtime will use target module's dependencies -->
         </dependency>
         <dependency>
             <groupId>org.openmrs.module</groupId>
@@ -205,7 +199,6 @@
                 </dependencies>
             </plugin>
             
-            <!-- Create test JAR containing test classes for universal plugin usage -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
