@@ -101,6 +101,28 @@
         </dependency>
         <!-- Module-specific dependencies will be provided by target module's classpath -->
         <!-- Removed hardcoded webservices.rest dependencies for universal compatibility -->
+        
+        <!-- Minimal test dependencies for compilation only -->
+        <dependency>
+            <groupId>org.openmrs.module</groupId>
+            <artifactId>webservices.rest-omod-common</artifactId>
+            <version>${webservices.rest.version}</version>
+            <scope>test</scope>
+            <!-- This is only for compilation - runtime will use target module's dependencies -->
+        </dependency>
+        <dependency>
+            <groupId>org.openmrs.module</groupId>
+            <artifactId>webservices.rest-omod-common</artifactId>
+            <version>${webservices.rest.version}</version>
+            <classifier>tests</classifier>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.openmrs.module</groupId>
+            <artifactId>webservices.rest-omod-2.4</artifactId>
+            <version>${webservices.rest.version}</version>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
@@ -171,6 +193,28 @@
                         <version>5.8.2</version>
                     </dependency>
                 </dependencies>
+            </plugin>
+            
+            <!-- Create test JAR containing test classes for universal plugin usage -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.2.2</version>
+                <executions>
+                    <execution>
+                        <id>test-jar</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>test-jar</goal>
+                        </goals>
+                        <configuration>
+                            <includes>
+                                <include>**/*Test.class</include>
+                                <include>**/introspection/**/*.class</include>
+                            </includes>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
