@@ -40,6 +40,33 @@ public class ModuleClasspathBuilder {
         classpath.add(pluginTestJar);
         log.info("Added plugin test JAR: {}", pluginTestJar);
         
+        // 2. Add plugin's main JAR (contains Swagger dependencies)
+        String pluginMainJar = resolvePluginMainJar();
+        if (pluginMainJar != null) {
+            classpath.add(pluginMainJar);
+            log.info("Added plugin main JAR: {}", pluginMainJar);
+        }
+        
+        // 3. Add critical Swagger dependencies explicitly
+        List<String> swaggerJars = resolveSwaggerDependencies();
+        for (String swaggerJar : swaggerJars) {
+            classpath.add(swaggerJar);
+            log.debug("Added Swagger dependency: {}", swaggerJar);
+        }
+        if (!swaggerJars.isEmpty()) {
+            log.info("Added {} Swagger dependency JARs", swaggerJars.size());
+        }
+        
+        // 4. Add JUnit Platform dependencies for JUnit 5 support
+        List<String> junitJars = resolveJUnitPlatformDependencies();
+        for (String junitJar : junitJars) {
+            classpath.add(junitJar);
+            log.debug("Added JUnit Platform dependency: {}", junitJar);
+        }
+        if (!junitJars.isEmpty()) {
+            log.info("Added {} JUnit Platform dependency JARs", junitJars.size());
+        }
+        
         // 2. Target module's compiled classes
         String outputDir = project.getBuild().getOutputDirectory();
         if (outputDir != null) {
@@ -106,6 +133,116 @@ public class ModuleClasspathBuilder {
         
         // Strategy 3: Fail with helpful message
         throw new RuntimeException(createHelpfulErrorMessage());
+    }
+    
+    /**
+     * Resolves the plugin's main JAR using multiple fallback strategies.
+     * 
+     * @return Absolute path to the plugin main JAR, or null if not found
+     */
+    private static String resolvePluginMainJar() {
+        
+        // Strategy 1: Development environment (plugin's own target directory)
+        String devMainJar = tryDevelopmentMainJar();
+        if (devMainJar != null) {
+            log.debug("Using development main JAR: {}", devMainJar);
+            return devMainJar;
+        }
+        
+        // Strategy 2: Maven repository
+        String repoMainJar = tryMavenRepositoryMainJar();
+        if (repoMainJar != null) {
+            log.debug("Using repository main JAR: {}", repoMainJar);
+            return repoMainJar;
+        }
+        
+        log.warn("Could not resolve plugin main JAR - Swagger dependencies may not be available");
+        return null;
+    }
+    
+    /**
+     * Resolves critical Swagger dependencies from Maven repository.
+     * 
+     * @return List of paths to Swagger dependency JARs
+     */
+    private static List<String> resolveSwaggerDependencies() {
+        List<String> swaggerJars = new ArrayList<>();
+        String[] repoPaths = getMavenRepositoryPaths();
+        
+        // Critical Swagger dependencies with versions
+        String[][] dependencies = {
+            {"io.swagger.core.v3", "swagger-models", "2.2.15"},
+            {"io.swagger.core.v3", "swagger-core", "2.2.15"},
+            {"io.swagger.core.v3", "swagger-annotations", "2.2.15"},
+            {"com.fasterxml.jackson.datatype", "jackson-datatype-jsr310", "2.13.4"}
+        };
+        
+        for (String repoPath : repoPaths) {
+            if (repoPath == null) continue;
+            
+            for (String[] dep : dependencies) {
+                String groupPath = dep[0].replace('.', File.separatorChar);
+                String jarPath = repoPath + File.separator +
+                    groupPath + File.separator + 
+                    dep[1] + File.separator + 
+                    dep[2] + File.separator + 
+                    dep[1] + "-" + dep[2] + ".jar";
+                
+                File jarFile = new File(jarPath);
+                if (jarFile.exists()) {
+                    swaggerJars.add(jarFile.getAbsolutePath());
+                    log.debug("Found Swagger dependency: {}", jarFile.getName());
+                }
+            }
+            
+            // If we found dependencies in this repo, use them
+            if (!swaggerJars.isEmpty()) {
+                break;
+            }
+        }
+        
+        return swaggerJars;
+    }
+    
+    /**
+     * Resolves JUnit Platform dependencies for JUnit 5 support.
+     */
+    private static List<String> resolveJUnitPlatformDependencies() {
+        List<String> junitJars = new ArrayList<>();
+        
+        // Define JUnit Platform dependencies [groupId, artifactId, version]
+        String[][] dependencies = {
+            {"org.junit.platform", "junit-platform-console-standalone", "1.8.2"}
+        };
+        
+        // Get the local Maven repository paths
+        String[] repoPaths = getMavenRepositoryPaths();
+        
+        for (String repoPath : repoPaths) {
+            if (repoPath == null) continue;
+            
+            for (String[] dep : dependencies) {
+                String groupPath = dep[0].replace('.', File.separatorChar);
+                String jarPath = repoPath + File.separator +
+                    groupPath + File.separator + 
+                    dep[1] + File.separator + 
+                    dep[2] + File.separator + 
+                    dep[1] + "-" + dep[2] + ".jar";
+                
+                File jarFile = new File(jarPath);
+                if (jarFile.exists()) {
+                    junitJars.add(jarFile.getAbsolutePath());
+                    log.debug("Found JUnit Platform dependency: {}", jarFile.getName());
+                }
+            }
+            
+            // If we found dependencies in this repo, use them
+            if (!junitJars.isEmpty()) {
+                break;
+            }
+        }
+        
+        return junitJars;
     }
     
     /**
@@ -217,6 +354,79 @@ public class ModuleClasspathBuilder {
                "   (Should contain: openmrs-rest-analyzer-1.0.0-SNAPSHOT-tests.jar)\n" +
                "\n" +
                "If the problem persists, check that the maven-jar-plugin is configured correctly.";
+    }
+    
+    /**
+     * Try to find main JAR in development environment (plugin's own target directory).
+     */
+    private static String tryDevelopmentMainJar() {
+        try {
+            File currentDir = new File(".");
+            
+            // Check plugin's target directory for main JAR
+            File targetDir = new File(currentDir, "target");
+            if (targetDir.exists()) {
+                File[] mainJars = targetDir.listFiles((dir, name) -> 
+                    name.endsWith(".jar") && 
+                    name.contains("openmrs-rest-analyzer") && 
+                    !name.endsWith("-tests.jar") &&
+                    !name.contains("-sources") &&
+                    !name.contains("-javadoc")
+                );
+                
+                if (mainJars != null && mainJars.length > 0) {
+                    return mainJars[0].getAbsolutePath();
+                }
+            }
+            
+            // Also check parent directories (in case we're in a submodule)
+            File parentDir = currentDir.getParentFile();
+            if (parentDir != null) {
+                File parentTarget = new File(parentDir, "openmrs-rest-representation-analyzer/target");
+                if (parentTarget.exists()) {
+                    File[] mainJars = parentTarget.listFiles((dir, name) -> 
+                        name.endsWith(".jar") && 
+                        name.contains("openmrs-rest-analyzer") && 
+                        !name.endsWith("-tests.jar") &&
+                        !name.contains("-sources") &&
+                        !name.contains("-javadoc")
+                    );
+                    
+                    if (mainJars != null && mainJars.length > 0) {
+                        return mainJars[0].getAbsolutePath();
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.debug("Could not resolve main JAR from development environment: {}", e.getMessage());
+        }
+        return null;
+    }
+    
+    /**
+     * Try to find main JAR in Maven repository.
+     */
+    private static String tryMavenRepositoryMainJar() {
+        String[] repoPaths = getMavenRepositoryPaths();
+        String version = "1.0.0-SNAPSHOT";  // TODO: Make this dynamic
+        
+        for (String repoPath : repoPaths) {
+            if (repoPath == null) continue;
+            
+            String mainJarPath = repoPath + File.separator +
+                "org" + File.separator + 
+                "openmrs" + File.separator + 
+                "plugin" + File.separator + 
+                "openmrs-rest-analyzer" + File.separator + 
+                version + File.separator + 
+                "openmrs-rest-analyzer-" + version + ".jar";
+            
+            File mainJar = new File(mainJarPath);
+            if (mainJar.exists()) {
+                return mainJar.getAbsolutePath();
+            }
+        }
+        return null;
     }
     
     /**

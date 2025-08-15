@@ -137,7 +137,9 @@ public class RepresentationAnalyzerMojo extends AbstractMojo {
         command.add("-DanalysisOutputFile=" + outputFile);
         command.add("-Dopenmrs.version=" + openmrsVersion);
         
-        command.add("org.junit.runner.JUnitCore");
+        // Use JUnit Platform Console Standalone for JUnit 5 support
+        command.add("org.junit.platform.console.ConsoleLauncher");
+        command.add("--select-class");
         command.add("org.openmrs.plugin.rest.analyzer.test.OpenmrsOpenapiSpecGeneratorTest");
         
         log.info("Executing analysis for module: {} with packages: {}", 
@@ -180,12 +182,12 @@ public class RepresentationAnalyzerMojo extends AbstractMojo {
     }
     
     private void processAnalysisResults() throws IOException {
-        File expectedOutput = new File(project.getBuild().getDirectory(), "representation-analysis.json");
+        File expectedOutput = new File(outputDirectory, outputFile);
         
         if (!expectedOutput.exists()) {
             log.warn("Expected output file not found: {}", expectedOutput.getAbsolutePath());
             
-            File targetDir = new File(project.getBuild().getDirectory());
+            File targetDir = new File(outputDirectory);
             File[] jsonFiles = targetDir.listFiles((dir, name) -> name.endsWith(".json"));
             if (jsonFiles != null && jsonFiles.length > 0) {
                 log.info("Found alternative output files:");

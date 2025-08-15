@@ -51,7 +51,6 @@ import static org.junit.jupiter.api.Assertions.*;
 public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensitiveTest {
     
     private static final Logger log = LoggerFactory.getLogger(OpenmrsOpenapiSpecGeneratorTest.class);
-    private static final String OUTPUT_FILE = "openapi-spec-output.json";
     
     private SchemaIntrospectionService schemaIntrospectionService;
     private PropertyTypeResolver propertyTypeResolver;
@@ -208,8 +207,9 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
         
         writeOpenApiToFile(openAPI);
         
+        String outputFileName = System.getProperty("analysisOutputFile", "openapi-spec-output.json");
         log.info("OpenAPI 3.0 spec generated successfully: {} (processed {}/{} handlers)", 
-                OUTPUT_FILE, successfulHandlers, processedHandlers);
+                outputFileName, successfulHandlers, processedHandlers);
     }
     
     private boolean processResourceHandler(DelegatingResourceHandler<?> handler, Components components, Paths paths) {
@@ -650,12 +650,18 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
     }
     
     private void writeOpenApiToFile(OpenAPI openAPI) throws Exception {
-        File outputDir = new File("target");
+        // Get output configuration from Mojo system properties
+        String outputDirPath = System.getProperty("analysisOutputDir", "target");
+        String outputFileName = System.getProperty("analysisOutputFile", "openapi-spec-output.json");
+        
+        log.info("Output configuration - Dir: {}, File: {}", outputDirPath, outputFileName);
+        
+        File outputDir = new File(outputDirPath);
         if (!outputDir.exists()) {
             outputDir.mkdirs();
         }
         
-        File outputFile = new File(outputDir, OUTPUT_FILE);
+        File outputFile = new File(outputDir, outputFileName);
         
         String json = io.swagger.v3.core.util.Json.pretty(openAPI);
         
