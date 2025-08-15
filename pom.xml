@@ -99,25 +99,8 @@
             <type>pom</type>
             <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>org.openmrs.module</groupId>
-            <artifactId>webservices.rest-omod-common</artifactId>
-            <version>${webservices.rest.version}</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.openmrs.module</groupId>
-            <artifactId>webservices.rest-omod-common</artifactId>
-            <version>${webservices.rest.version}</version>
-            <classifier>tests</classifier>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.openmrs.module</groupId>
-            <artifactId>webservices.rest-omod-2.4</artifactId>
-            <version>${webservices.rest.version}</version>
-            <scope>test</scope>
-        </dependency>
+        <!-- Module-specific dependencies will be provided by target module's classpath -->
+        <!-- Removed hardcoded webservices.rest dependencies for universal compatibility -->
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>

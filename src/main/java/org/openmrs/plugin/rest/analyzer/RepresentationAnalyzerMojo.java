@@ -28,10 +28,10 @@ public class RepresentationAnalyzerMojo extends AbstractMojo {
     @Parameter(defaultValue = "${project}", required = true, readonly = true)
     private MavenProject project;
 
-    @Parameter(defaultValue = "${project.build.directory}/representation-analysis", property = "outputDirectory")
+    @Parameter(defaultValue = "${project.build.directory}/openapi", property = "outputDirectory")
     private String outputDirectory;
 
-    @Parameter(defaultValue = "representation-analysis.json", property = "outputFile")
+    @Parameter(defaultValue = "${project.artifactId}-openapi-spec.json", property = "outputFile")
     private String outputFile;
 
     @Parameter(defaultValue = "300", property = "timeoutSeconds")
@@ -39,13 +39,32 @@ public class RepresentationAnalyzerMojo extends AbstractMojo {
 
     @Parameter(defaultValue = "2.4.x", property = "openmrsVersion")
     private String openmrsVersion;
+    
+    // New parameters for universal module support
+    @Parameter(property = "scanPackages")
+    private List<String> scanPackages;
+    
+    @Parameter(property = "autoDetectResources", defaultValue = "true")
+    private boolean autoDetectResources;
 
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
         
         log.info("=== OpenMRS REST Representation Analyzer ===");
+        log.info("Target module: {}", project.getArtifactId());
         log.debug("Project: {}", project.getName());
         log.debug("Output directory: {}", outputDirectory);
+        
+        // Auto-detect scan packages if not specified
+        if (autoDetectResources && (scanPackages == null || scanPackages.isEmpty())) {
+            scanPackages = ModuleClasspathBuilder.detectResourcePackages(project);
+            log.info("Auto-detected resource packages: {}", scanPackages);
+        } else if (scanPackages != null && !scanPackages.isEmpty()) {
+            log.info("Using configured scan packages: {}", scanPackages);
+        } else {
+            log.warn("No scan packages specified and auto-detection disabled. May not find resources.");
+            scanPackages = new ArrayList<>();
+        }
         
         File outputDir = new File(outputDirectory);
         if (!outputDir.exists()) {
@@ -86,26 +105,19 @@ public class RepresentationAnalyzerMojo extends AbstractMojo {
     
     private int runTestInForkedProcess() throws IOException, InterruptedException {
         
-        List<String> classpath = new ArrayList<>();
-        
-        classpath.add(project.getBuild().getOutputDirectory());
-        classpath.add(project.getBuild().getTestOutputDirectory());
-        
-        for (Object artifact : project.getTestArtifacts()) {
-            org.apache.maven.artifact.Artifact dep = (org.apache.maven.artifact.Artifact) artifact;
-            if (dep.getFile() != null) {
-                classpath.add(dep.getFile().getAbsolutePath());
-            }
-        }
-        
+        // Build target module's complete classpath using new builder
+        List<String> classpath = ModuleClasspathBuilder.buildTargetModuleClasspath(project);
         String classpathString = String.join(File.pathSeparator, classpath);
-        log.debug("Forked process will use {} classpath entries", classpath.size());
+        
+        log.debug("Forked process will use {} classpath entries for module: {}", 
+                classpath.size(), project.getArtifactId());
         
         List<String> command = new ArrayList<>();
         command.add(getJavaExecutable());
         command.add("-cp");
         command.add(classpathString);
         
+        // OpenMRS database configuration
         command.add("-DdatabaseUrl=jdbc:h2:mem:openmrs;DB_CLOSE_DELAY=-1");
         command.add("-DdatabaseDriver=org.h2.Driver");
         command.add("-DuseInMemoryDatabase=true");
@@ -113,6 +125,14 @@ public class RepresentationAnalyzerMojo extends AbstractMojo {
         command.add("-DdatabasePassword=");
         command.add("-Djava.awt.headless=true");
         
+        // Pass module-specific information to the test
+        command.add("-Dtarget.module.groupId=" + project.getGroupId());
+        command.add("-Dtarget.module.artifactId=" + project.getArtifactId());
+        command.add("-Dtarget.module.version=" + project.getVersion());
+        command.add("-Dtarget.module.packages=" + String.join(",", scanPackages));
+        command.add("-Dtarget.module.classesDir=" + project.getBuild().getOutputDirectory());
+        
+        // Analysis output configuration
         command.add("-DanalysisOutputDir=" + outputDirectory);
         command.add("-DanalysisOutputFile=" + outputFile);
         command.add("-Dopenmrs.version=" + openmrsVersion);
@@ -120,6 +140,8 @@ public class RepresentationAnalyzerMojo extends AbstractMojo {
         command.add("org.junit.runner.JUnitCore");
         command.add("org.openmrs.plugin.rest.analyzer.test.OpenmrsOpenapiSpecGeneratorTest");
         
+        log.info("Executing analysis for module: {} with packages: {}", 
+                project.getArtifactId(), scanPackages);
         log.debug("Executing command: {}", String.join(" ", command));
         
         ProcessBuilder pb = new ProcessBuilder(command);

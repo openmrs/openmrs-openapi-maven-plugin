@@ -61,6 +61,15 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
     public void setup() throws Exception {
         log.info("=== Setting up OpenAPI Spec Generator Test ===");
         
+        // Get module information from system properties passed by the Mojo
+        String targetModuleGroupId = System.getProperty("target.module.groupId", "unknown");
+        String targetModuleArtifactId = System.getProperty("target.module.artifactId", "unknown");
+        String targetModuleVersion = System.getProperty("target.module.version", "unknown");
+        String scanPackagesStr = System.getProperty("target.module.packages", "");
+        
+        log.info("Target module: {}:{}:{}", targetModuleGroupId, targetModuleArtifactId, targetModuleVersion);
+        log.info("Scan packages: {}", scanPackagesStr);
+        
         RestService restService = Context.getService(RestService.class);
         assertNotNull(restService, "RestService should be available");
         restService.initialize();
@@ -71,26 +80,55 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
         
         schemaIntrospectionService = new SchemaIntrospectionServiceImpl();
         
-        buildRestDomainTypeSet(restService);
+        // Build REST domain type set with optional package filtering
+        List<String> scanPackages = scanPackagesStr.isEmpty() ? 
+            new ArrayList<>() : 
+            Arrays.asList(scanPackagesStr.split(","));
+            
+        buildRestDomainTypeSet(restService, scanPackages, targetModuleArtifactId);
         
         // Initialize PropertyTypeResolver with dependencies
         propertyTypeResolver = new PropertyTypeResolver(schemaIntrospectionService);
         
-        log.info("=== Setup Complete ===");
+        log.info("=== Setup Complete for {} ===", targetModuleArtifactId);
     }
     
     /**
      * Builds a set of domain types by discovering all delegate types from REST resource handlers.
      * This ensures our OpenAPI spec only references types that are actually exposed via REST.
+     * 
+     * @param restService The OpenMRS REST service
+     * @param scanPackages Optional list of packages to filter resources (empty means scan all)
+     * @param targetModule The name of the target module being analyzed
      */
-    private void buildRestDomainTypeSet(RestService restService) {
-        log.info("Building domain type set from REST resource handlers...");
+    private void buildRestDomainTypeSet(RestService restService, List<String> scanPackages, String targetModule) {
+        log.info("Building domain type set from REST resource handlers for module: {}", targetModule);
         
         Collection<DelegatingResourceHandler<?>> handlers = restService.getResourceHandlers();
         int discoveredTypes = 0;
+        int filteredHandlers = 0;
         
         for (DelegatingResourceHandler<?> handler : handlers) {
             try {
+                // Filter by package if scan packages are specified
+                if (!scanPackages.isEmpty()) {
+                    String handlerPackage = handler.getClass().getPackage().getName();
+                    boolean matchesPackage = scanPackages.stream()
+                        .anyMatch(pkg -> handlerPackage.startsWith(pkg.trim()));
+                    
+                    if (!matchesPackage) {
+                        log.debug("Skipping handler outside scan packages: {} (package: {})", 
+                                handler.getClass().getSimpleName(), handlerPackage);
+                        continue;
+                    } else {
+                        filteredHandlers++;
+                        log.debug("Including handler: {} (package: {})", 
+                                handler.getClass().getSimpleName(), handlerPackage);
+                    }
+                } else {
+                    filteredHandlers++;
+                }
+                
                 if (!(handler instanceof org.openmrs.module.webservices.rest.web.resource.api.Resource)) {
                     log.debug("Skipping handler that doesn't implement Resource interface: {}", 
                             handler.getClass().getSimpleName());
