@@ -81,6 +81,26 @@ public class ModuleClasspathBuilder {
             log.debug("Added module test classes: {}", testOutputDir);
         }
         
+        // Add OpenMRS web tests JAR (required for BaseModuleWebContextSensitiveTest)
+        List<String> openmrsWebTestJars = resolveOpenmrsWebTestDependencies(project);
+        for (String openmrsWebTestJar : openmrsWebTestJars) {
+            classpath.add(openmrsWebTestJar);
+            log.debug("Added OpenMRS web test dependency: {}", openmrsWebTestJar);
+        }
+        if (!openmrsWebTestJars.isEmpty()) {
+            log.info("Added {} OpenMRS web test dependency JARs", openmrsWebTestJars.size());
+        }
+        
+        // Add OpenMRS test JAR (required for BaseModuleContextSensitiveTest in 2.4+)
+        List<String> openmrsTestJars = resolveOpenmrsTestDependencies(project);
+        for (String openmrsTestJar : openmrsTestJars) {
+            classpath.add(openmrsTestJar);
+            log.debug("Added OpenMRS test dependency: {}", openmrsTestJar);
+        }
+        if (!openmrsTestJars.isEmpty()) {
+            log.info("Added {} OpenMRS test dependency JARs", openmrsTestJars.size());
+        }
+        
         int dependencyCount = 0;
         for (Object artifactObj : project.getTestArtifacts()) {
             Artifact artifact = (Artifact) artifactObj;
@@ -231,6 +251,117 @@ public class ModuleClasspathBuilder {
         }
         
         return junitJars;
+    }
+    
+    /**
+     * Resolves OpenMRS web test dependencies, specifically looking for openmrs-web-{version}-tests.jar
+     * which contains BaseModuleWebContextSensitiveTest and other test infrastructure.
+     * 
+     * @param project The target module's Maven project
+     * @return List of OpenMRS web test JAR absolute paths
+     */
+    private static List<String> resolveOpenmrsWebTestDependencies(MavenProject project) {
+        List<String> webTestJars = new ArrayList<>();
+        
+        // First, try to determine the OpenMRS platform version from project dependencies
+        String openmrsVersion = determineOpenmrsVersion(project);
+        
+        if (openmrsVersion != null) {
+            String[] repoPaths = getMavenRepositoryPaths();
+            
+            for (String repoPath : repoPaths) {
+                if (repoPath == null) continue;
+                
+                String jarPath = repoPath + File.separator +
+                    "org" + File.separator + "openmrs" + File.separator + "web" + File.separator +
+                    "openmrs-web" + File.separator + 
+                    openmrsVersion + File.separator +
+                    "openmrs-web-" + openmrsVersion + "-tests.jar";
+                
+                File jarFile = new File(jarPath);
+                if (jarFile.exists()) {
+                    webTestJars.add(jarFile.getAbsolutePath());
+                    log.debug("Found OpenMRS web test JAR: {}", jarFile.getName());
+                    break;
+                }
+            }
+        }
+        
+        return webTestJars;
+    }
+    
+    /**
+     * Attempts to determine the OpenMRS platform version from project dependencies.
+     * 
+     * @param project The target module's Maven project
+     * @return OpenMRS version string or null if not found
+     */
+    private static String determineOpenmrsVersion(MavenProject project) {
+        // Check all artifacts for OpenMRS API dependency
+        for (Object artifactObj : project.getTestArtifacts()) {
+            Artifact artifact = (Artifact) artifactObj;
+            if ("org.openmrs.api".equals(artifact.getGroupId()) && 
+                "openmrs-api".equals(artifact.getArtifactId())) {
+                return artifact.getVersion();
+            }
+        }
+        
+        // Also check compile artifacts in case it's not in test scope
+        for (Object artifactObj : project.getCompileArtifacts()) {
+            Artifact artifact = (Artifact) artifactObj;
+            if ("org.openmrs.api".equals(artifact.getGroupId()) && 
+                "openmrs-api".equals(artifact.getArtifactId())) {
+                return artifact.getVersion();
+            }
+        }
+        
+        // Fallback: check project properties for common OpenMRS version property names
+        String version = project.getProperties().getProperty("openmrsPlatformVersion");
+        if (version == null) {
+            version = project.getProperties().getProperty("openmrs.version");
+        }
+        if (version == null) {
+            version = project.getProperties().getProperty("openmrsVersion");
+        }
+        
+        return version;
+    }
+    
+    /**
+     * Resolves OpenMRS test dependencies, specifically looking for openmrs-test-{version}.jar
+     * which contains BaseModuleContextSensitiveTest and other Jupiter test infrastructure.
+     * 
+     * @param project The target module's Maven project
+     * @return List of OpenMRS test JAR absolute paths
+     */
+    private static List<String> resolveOpenmrsTestDependencies(MavenProject project) {
+        List<String> testJars = new ArrayList<>();
+        
+        // First, try to determine the OpenMRS platform version from project dependencies
+        String openmrsVersion = determineOpenmrsVersion(project);
+        
+        if (openmrsVersion != null) {
+            String[] repoPaths = getMavenRepositoryPaths();
+            
+            for (String repoPath : repoPaths) {
+                if (repoPath == null) continue;
+                
+                String jarPath = repoPath + File.separator +
+                    "org" + File.separator + "openmrs" + File.separator + "test" + File.separator +
+                    "openmrs-test" + File.separator + 
+                    openmrsVersion + File.separator +
+                    "openmrs-test-" + openmrsVersion + ".jar";
+                
+                File jarFile = new File(jarPath);
+                if (jarFile.exists()) {
+                    testJars.add(jarFile.getAbsolutePath());
+                    log.debug("Found OpenMRS test JAR: {}", jarFile.getName());
+                    break;
+                }
+            }
+        }
+        
+        return testJars;
     }
     
     /**
