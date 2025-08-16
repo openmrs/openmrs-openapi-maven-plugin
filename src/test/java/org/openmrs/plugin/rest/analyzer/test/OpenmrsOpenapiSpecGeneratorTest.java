@@ -17,7 +17,6 @@ import org.openmrs.plugin.rest.analyzer.introspection.SchemaIntrospectionService
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.swagger.v3.oas.models.media.Discriminator;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.Components;
@@ -459,20 +458,14 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
         ObjectSchema responseSchema = new ObjectSchema();
         @SuppressWarnings("rawtypes")
         List<Schema> oneOfSchemas = new ArrayList<>();
-        Map<String, String> mapping = new LinkedHashMap<>();
         for (Map.Entry<String, Schema<?>> entry : representationSchemas.entrySet()) {
             String repName = entry.getKey();
             String schemaName = capitalize(resourceType) + capitalize(repName);
             Schema<?> refSchema = new Schema<>().$ref("#/components/schemas/" + schemaName);
             oneOfSchemas.add(refSchema);
-            mapping.put(repName, "#/components/schemas/" + schemaName);
         }
         responseSchema.setOneOf(oneOfSchemas);
 
-        Discriminator discriminator = new Discriminator();
-        discriminator.setPropertyName("v");
-        discriminator.setMapping(mapping);
-        responseSchema.setDiscriminator(discriminator);
         mediaType.setSchema(responseSchema);
         content.addMediaType("application/json", mediaType);
         response200.setContent(content);
