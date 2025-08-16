@@ -307,13 +307,28 @@ public class SchemaIntrospectionServiceImpl implements SchemaIntrospectionServic
 			
 			String getterName = "get" + Character.toUpperCase(propertyName.charAt(0)) + propertyName.substring(1);
 			try {
-				Method getter = resourceClass.getMethod(getterName, handler.getClass().getTypeParameters()[0].getClass());
+				// Try parameterless getter first (most common case)
+				Method getter = resourceClass.getMethod(getterName);
 				if (getter != null) {
 					Type returnType = getter.getGenericReturnType();
 					return getTypeName(returnType);
 				}
-			} catch (NoSuchMethodException | SecurityException e) {
-				log.debug("No conventional getter found for property: {}", propertyName);
+			} catch (NoSuchMethodException e) {
+				// Try getter with delegate type parameter (less common)
+				try {
+					Class<?> delegateType = getDelegateType((Resource) handler);
+					if (delegateType != null) {
+						Method getter = resourceClass.getMethod(getterName, delegateType);
+						if (getter != null) {
+							Type returnType = getter.getGenericReturnType();
+							return getTypeName(returnType);
+						}
+					}
+				} catch (NoSuchMethodException | SecurityException e2) {
+					log.debug("No conventional getter found for property: {}", propertyName);
+				}
+			} catch (SecurityException e) {
+				log.debug("Security exception accessing getter for property: {}", propertyName);
 			}
 			
 		} catch (Exception e) {
