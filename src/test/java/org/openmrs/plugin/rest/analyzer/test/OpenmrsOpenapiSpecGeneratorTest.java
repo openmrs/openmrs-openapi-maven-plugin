@@ -14,7 +14,6 @@ import org.openmrs.module.webservices.rest.web.representation.Representation;
 import org.openmrs.web.test.jupiter.BaseModuleWebContextSensitiveTest;
 import org.openmrs.plugin.rest.analyzer.introspection.SchemaIntrospectionService;
 import org.openmrs.plugin.rest.analyzer.introspection.SchemaIntrospectionServiceImpl;
-import org.openmrs.plugin.rest.analyzer.introspection.PropertyTypeResolver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -53,7 +52,6 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
     private static final Logger log = LoggerFactory.getLogger(OpenmrsOpenapiSpecGeneratorTest.class);
     
     private SchemaIntrospectionService schemaIntrospectionService;
-    private PropertyTypeResolver propertyTypeResolver;
     private Set<String> restDomainTypes = new HashSet<>();
     
     @BeforeEach
@@ -83,8 +81,6 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
             Arrays.asList(scanPackagesStr.split(","));
             
         buildRestDomainTypeSet(restService, scanPackages, targetModuleArtifactId);
-        
-        propertyTypeResolver = new PropertyTypeResolver(schemaIntrospectionService);
         
         log.info("=== Setup Complete for {} ===", targetModuleArtifactId);
     }
@@ -301,7 +297,7 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
                 String propertyName = entry.getKey();
                 DelegatingResourceDescription.Property property = entry.getValue();
                 
-                String accurateType = propertyTypeResolver.determineAccuratePropertyType(
+                String accurateType = schemaIntrospectionService.determineAccuratePropertyType(
                     propertyName, property, handler, allProperties);
                 
                 allProperties.put(propertyName, accurateType);
