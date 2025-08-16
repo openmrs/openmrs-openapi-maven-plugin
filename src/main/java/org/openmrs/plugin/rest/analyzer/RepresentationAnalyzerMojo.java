@@ -64,7 +64,7 @@ public class RepresentationAnalyzerMojo extends AbstractMojo {
      * List of OpenMRS platform versions to generate OpenAPI specifications for.
      * When specified, the plugin will generate separate spec files for each version.
      * 
-     * Output files will be named: {moduleName}-openapi-spec-{version}.json
+     * Output files will be named: openapi-{version}.json
      */
     @Parameter(property = "versionsToGenerate")
     private List<String> versionsToGenerate;
