@@ -53,6 +53,7 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
     
     private SchemaIntrospectionService schemaIntrospectionService;
     private Set<String> restDomainTypes = new HashSet<>();
+    private List<DelegatingResourceHandler<?>> filteredHandlers = new ArrayList<>();
     
     @BeforeEach
     public void setup() throws Exception {
@@ -88,6 +89,7 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
     /**
      * Builds a set of domain types by discovering all delegate types from REST resource handlers.
      * This ensures our OpenAPI spec only references types that are actually exposed via REST.
+     * Also stores the filtered handlers for use in spec generation.
      * 
      * @param restService The OpenMRS REST service
      * @param scanPackages Optional list of packages to filter resources (empty means scan all)
@@ -98,10 +100,12 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
         
         Collection<DelegatingResourceHandler<?>> handlers = restService.getResourceHandlers();
         int discoveredTypes = 0;
-        int filteredHandlers = 0;
+        int filteredHandlerCount = 0;
         
         for (DelegatingResourceHandler<?> handler : handlers) {
             try {
+                boolean includeHandler = false;
+                
                 if (!scanPackages.isEmpty()) {
                     String handlerPackage = handler.getClass().getPackage().getName();
                     boolean matchesPackage = scanPackages.stream()
@@ -112,12 +116,17 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
                                 handler.getClass().getSimpleName(), handlerPackage);
                         continue;
                     } else {
-                        filteredHandlers++;
+                        includeHandler = true;
                         log.debug("Including handler: {} (package: {})", 
                                 handler.getClass().getSimpleName(), handlerPackage);
                     }
                 } else {
-                    filteredHandlers++;
+                    includeHandler = true;
+                }
+                
+                if (includeHandler) {
+                    filteredHandlers.add(handler);
+                    filteredHandlerCount++;
                 }
                 
                 if (!(handler instanceof org.openmrs.module.webservices.rest.web.resource.api.Resource)) {
@@ -145,8 +154,8 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
             }
         }
         
-        log.info("Discovered {} domain types from {} REST resource handlers", 
-                discoveredTypes, handlers.size());
+        log.info("Discovered {} domain types from {} filtered handlers (total available: {})", 
+                discoveredTypes, filteredHandlerCount, handlers.size());
         log.debug("Domain types: {}", restDomainTypes);
     }
 
@@ -171,13 +180,10 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
     public void generateOpenApiSpecForAllResources() throws Exception {
         log.info("=== Starting OpenAPI Spec Generation ===");
         
-        RestService restService = Context.getService(RestService.class);
-        Collection<DelegatingResourceHandler<?>> handlers = restService.getResourceHandlers();
-        
-        assertTrue(handlers.size() > 0, "Should have at least one resource handler");
+        assertTrue(filteredHandlers.size() > 0, "Should have at least one filtered resource handler");
         assertTrue(restDomainTypes.size() > 0, "Should have discovered at least one domain type");
         
-        log.info("Found {} REST resource handlers and {} domain types", handlers.size(), restDomainTypes.size());
+        log.info("Found {} filtered REST resource handlers and {} domain types", filteredHandlers.size(), restDomainTypes.size());
         
         OpenAPI openAPI = createBaseOpenApiStructure();
         Components components = new Components();
@@ -186,7 +192,8 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
         int processedHandlers = 0;
         int successfulHandlers = 0;
         
-        for (DelegatingResourceHandler<?> handler : handlers) {
+        // Use the filtered handlers instead of all handlers
+        for (DelegatingResourceHandler<?> handler : filteredHandlers) {
             processedHandlers++;
             if (processResourceHandler(handler, components, paths)) {
                 successfulHandlers++;
