@@ -14,6 +14,7 @@ import org.openmrs.module.webservices.rest.web.representation.Representation;
 import org.openmrs.web.test.jupiter.BaseModuleWebContextSensitiveTest;
 import org.openmrs.plugin.rest.analyzer.introspection.SchemaIntrospectionService;
 import org.openmrs.plugin.rest.analyzer.introspection.SchemaIntrospectionServiceImpl;
+import org.openmrs.plugin.rest.analyzer.util.SchemaNameGenerator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -256,7 +257,7 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
                 
                 Schema<?> schema = generateRepresentationSchema(handler, representation, allRepresentationProperties, components);
                 if (schema != null) {
-                    String schemaName = capitalize(resourceType) + capitalize(repName); // e.g., "PatientDefault"
+                    String schemaName = SchemaNameGenerator.schemaName(resourceType, repName);
                     components.addSchemas(schemaName, schema);
                     representationSchemas.put(repName, schema);
                     log.debug("Created schema for {} representation: {}", repName, schemaName);
@@ -267,7 +268,7 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
             
             Schema<?> customSchema = generateCustomRepresentationSchema(resourceType, allRepresentationProperties, components);
             if (customSchema != null) {
-                String customSchemaName = capitalize(resourceType) + "Custom";
+                String customSchemaName = SchemaNameGenerator.schemaName(resourceType, "custom");
                 components.addSchemas(customSchemaName, customSchema);
                 representationSchemas.put("custom", customSchema);
                 log.debug("Created schema for custom representation: {}", customSchemaName);
@@ -317,7 +318,22 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
                 log.debug("Property '{}' resolved to accurate type: {} (from {} representation)", 
                          propertyName, accurateType, representation.getClass().getSimpleName());
                 
-                Schema<?> propertySchema = mapToSwaggerSchema(accurateType, components);
+                // Get the representation for this nested property
+                String nestedRepresentation = "default"; // Default fallback
+                if (property.getRep() != null) {
+                    String repClassName = property.getRep().getClass().getSimpleName().toLowerCase();
+                    if (repClassName.contains("default")) {
+                        nestedRepresentation = "default";
+                    } else if (repClassName.contains("full")) {
+                        nestedRepresentation = "full";
+                    } else if (repClassName.contains("ref")) {
+                        nestedRepresentation = "ref";
+                    } else {
+                        nestedRepresentation = "default"; // Safe fallback
+                    }
+                }
+                
+                Schema<?> propertySchema = mapToSwaggerSchema(accurateType, components, nestedRepresentation);
                 schemaProperties.put(propertyName, propertySchema);
             }
             schema.setProperties(schemaProperties);
@@ -349,19 +365,19 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
                 log.warn("Property '{}' not found in introspection results, using fallback", propertyName);
                 javaType = "String";
             }
-            Schema<?> propertySchema = mapToSwaggerSchema(javaType, components);
+            Schema<?> propertySchema = mapToSwaggerSchema(javaType, components, "default");
             schemaProperties.put(propertyName, propertySchema);
         }
         schema.setProperties(schemaProperties);
         return schema;
     }
     
-    private Schema<?> mapToSwaggerSchema(String javaType, Components components) {
+    private Schema<?> mapToSwaggerSchema(String javaType, Components components, String representationHint) {
         if (javaType == null) return new StringSchema();
         
         if (isCollectionType(javaType)) {
             String itemType = extractGenericType(javaType);
-            Schema<?> itemSchema = mapToSwaggerSchema(itemType, components);
+            Schema<?> itemSchema = mapToSwaggerSchema(itemType, components, representationHint);
             return new ArraySchema().items(itemSchema);
         }
         
@@ -381,7 +397,7 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
         } else if (lowerType.equals("date") || lowerType.contains("date") || lowerType.contains("time")) {
             return new StringSchema().format("date-time");
         } else if (isOpenMRSDomainType(cleanType)) {
-            String refName = capitalize(cleanType);
+            String refName = SchemaNameGenerator.schemaName(cleanType, representationHint);
             return new Schema<>().$ref("#/components/schemas/" + refName);
         } else if (lowerType.startsWith("object (from")) {
             return new ObjectSchema().description("Type determined from " + javaType);
@@ -460,7 +476,7 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
         List<Schema> oneOfSchemas = new ArrayList<>();
         for (Map.Entry<String, Schema<?>> entry : representationSchemas.entrySet()) {
             String repName = entry.getKey();
-            String schemaName = capitalize(resourceType) + capitalize(repName);
+            String schemaName = SchemaNameGenerator.schemaName(resourceType, repName);
             Schema<?> refSchema = new Schema<>().$ref("#/components/schemas/" + schemaName);
             oneOfSchemas.add(refSchema);
         }
