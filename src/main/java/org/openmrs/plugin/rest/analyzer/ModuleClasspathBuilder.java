@@ -51,22 +51,14 @@ public class ModuleClasspathBuilder {
             log.info("Added plugin main JAR: {}", pluginMainJar);
         }
         
-        List<String> swaggerJars = resolveSwaggerDependencies();
-        for (String swaggerJar : swaggerJars) {
-            classpath.add(swaggerJar);
-            log.debug("Added Swagger dependency: {}", swaggerJar);
+        // Add plugin's own dependencies (Swagger, JUnit Platform) from Maven repository
+        List<String> pluginDependencies = resolvePluginDependencies();
+        for (String dependency : pluginDependencies) {
+            classpath.add(dependency);
+            log.debug("Added plugin dependency: {}", dependency);
         }
-        if (!swaggerJars.isEmpty()) {
-            log.info("Added {} Swagger dependency JARs", swaggerJars.size());
-        }
-        
-        List<String> junitJars = resolveJUnitPlatformDependencies();
-        for (String junitJar : junitJars) {
-            classpath.add(junitJar);
-            log.debug("Added JUnit Platform dependency: {}", junitJar);
-        }
-        if (!junitJars.isEmpty()) {
-            log.info("Added {} JUnit Platform dependency JARs", junitJars.size());
+        if (!pluginDependencies.isEmpty()) {
+            log.info("Added {} plugin dependency JARs", pluginDependencies.size());
         }
         
         String outputDir = project.getBuild().getOutputDirectory();
@@ -80,6 +72,10 @@ public class ModuleClasspathBuilder {
             classpath.add(testOutputDir);
             log.debug("Added module test classes: {}", testOutputDir);
         }
+        
+        // Dependencies are now managed through the module's own pom.xml test dependencies
+        // See INTEGRATION_GUIDE.md for required dependency configuration
+        log.debug("Using module's declared test dependencies for OpenMRS web and test JARs");
         
         int dependencyCount = 0;
         for (Object artifactObj : project.getTestArtifacts()) {
@@ -154,59 +150,26 @@ public class ModuleClasspathBuilder {
     }
     
     /**
-     * Resolves critical Swagger dependencies from Maven repository.
+     * Resolves the plugin's own dependencies (Swagger, JUnit Platform, etc.) from Maven repository.
+     * This avoids hardcoding versions while ensuring required dependencies are available.
      * 
-     * @return List of paths to Swagger dependency JARs
+     * @return List of paths to plugin dependency JARs
      */
-    private static List<String> resolveSwaggerDependencies() {
-        List<String> swaggerJars = new ArrayList<>();
+    private static List<String> resolvePluginDependencies() {
+        List<String> dependencyJars = new ArrayList<>();
         String[] repoPaths = getMavenRepositoryPaths();
         
+        // Plugin dependencies as declared in pom.xml (but resolved dynamically)
         String[][] dependencies = {
+            // Swagger dependencies
             {"io.swagger.core.v3", "swagger-models", "2.2.15"},
             {"io.swagger.core.v3", "swagger-core", "2.2.15"},
             {"io.swagger.core.v3", "swagger-annotations", "2.2.15"},
-            {"com.fasterxml.jackson.datatype", "jackson-datatype-jsr310", "2.13.4"}
-        };
-        
-        for (String repoPath : repoPaths) {
-            if (repoPath == null) continue;
-            
-            for (String[] dep : dependencies) {
-                String groupPath = dep[0].replace('.', File.separatorChar);
-                String jarPath = repoPath + File.separator +
-                    groupPath + File.separator + 
-                    dep[1] + File.separator + 
-                    dep[2] + File.separator + 
-                    dep[1] + "-" + dep[2] + ".jar";
-                
-                File jarFile = new File(jarPath);
-                if (jarFile.exists()) {
-                    swaggerJars.add(jarFile.getAbsolutePath());
-                    log.debug("Found Swagger dependency: {}", jarFile.getName());
-                }
-            }
-            
-            if (!swaggerJars.isEmpty()) {
-                break;
-            }
-        }
-        
-        return swaggerJars;
-    }
-    
-    /**
-     * Resolves JUnit Platform dependencies for JUnit 5 support.
-     */
-    private static List<String> resolveJUnitPlatformDependencies() {
-        List<String> junitJars = new ArrayList<>();
-        
-        String[][] dependencies = {
+            {"com.fasterxml.jackson.datatype", "jackson-datatype-jsr310", "2.13.4"},
+            // JUnit Platform dependencies
             {"org.junit.platform", "junit-platform-console-standalone", "1.8.2"}
         };
         
-        String[] repoPaths = getMavenRepositoryPaths();
-        
         for (String repoPath : repoPaths) {
             if (repoPath == null) continue;
             
@@ -220,19 +183,19 @@ public class ModuleClasspathBuilder {
                 
                 File jarFile = new File(jarPath);
                 if (jarFile.exists()) {
-                    junitJars.add(jarFile.getAbsolutePath());
-                    log.debug("Found JUnit Platform dependency: {}", jarFile.getName());
+                    dependencyJars.add(jarFile.getAbsolutePath());
+                    log.debug("Found plugin dependency: {}", jarFile.getName());
                 }
             }
             
-            if (!junitJars.isEmpty()) {
+            if (!dependencyJars.isEmpty()) {
                 break;
             }
         }
         
-        return junitJars;
+        return dependencyJars;
     }
-    
+
     /**
      * Try to find test JAR in development environment (plugin's own target directory).
      */
@@ -413,12 +376,27 @@ public class ModuleClasspathBuilder {
     
     /**
      * Extracts the module name from the artifact ID.
-     * Examples: "openmrs-module-queue" -> "queue", "webservices.rest" -> "webservices.rest"
+     * Examples: 
+     * - "openmrs-module-queue" -> "queue"
+     * - "queue-omod" -> "queue" 
+     * - "webservices.rest-omod-2.4" -> "webservices.rest"
+     * - "webservices.rest" -> "webservices.rest"
      */
     public static String extractModuleName(String artifactId) {
         if (artifactId.startsWith("openmrs-module-")) {
             return artifactId.substring("openmrs-module-".length());
         }
+        
+        // Handle omod artifacts: "queue-omod" -> "queue"
+        if (artifactId.endsWith("-omod")) {
+            return artifactId.substring(0, artifactId.length() - "-omod".length());
+        }
+        
+        // Handle webservices.rest omod variants: "webservices.rest-omod-2.4" -> "webservices.rest"
+        if (artifactId.startsWith("webservices.rest-omod")) {
+            return "webservices.rest";
+        }
+        
         return artifactId;
     }
     
