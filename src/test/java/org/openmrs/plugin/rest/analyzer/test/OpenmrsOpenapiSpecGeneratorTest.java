@@ -7,10 +7,13 @@ import org.openmrs.GlobalProperty;
 import org.openmrs.api.context.Context;
 import org.openmrs.module.webservices.rest.web.RestConstants;
 import org.openmrs.module.webservices.rest.web.annotation.Resource;
+import org.openmrs.module.webservices.rest.web.RestConstants;
 import org.openmrs.module.webservices.rest.web.api.RestService;
 import org.openmrs.module.webservices.rest.web.resource.impl.DelegatingResourceDescription;
 import org.openmrs.module.webservices.rest.web.resource.impl.DelegatingResourceHandler;
 import org.openmrs.module.webservices.rest.web.representation.Representation;
+import org.openmrs.module.webservices.rest.web.representation.RefRepresentation;
+import org.openmrs.module.webservices.rest.web.representation.DefaultRepresentation;
 import org.openmrs.web.test.jupiter.BaseModuleWebContextSensitiveTest;
 import org.openmrs.plugin.rest.analyzer.introspection.SchemaIntrospectionService;
 import org.openmrs.plugin.rest.analyzer.introspection.SchemaIntrospectionServiceImpl;
@@ -227,7 +230,6 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
             
             String resourceName = annotation.name();
             String resourcePath = "/ws/rest/" + resourceName + "/{uuid}";
-            String resourceType = resourceName.replaceAll(".*/", "");
             
             log.info("Processing resource: {} ({})", resourceName, handler.getClass().getSimpleName());
             
@@ -242,6 +244,9 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
                 log.warn("Could not determine delegate type for {}", handler.getClass().getSimpleName());
                 return false;
             }
+            
+            // Use unified schema name generation for delegate types
+            String resourceType = SchemaNameGenerator.extractBaseResourceName(delegateType);
             
             Map<String, String> introspectedProperties = schemaIntrospectionService.discoverResourceProperties((org.openmrs.module.webservices.rest.web.resource.api.Resource) handler);
             log.debug("Discovered {} introspected properties for {}", introspectedProperties.size(), resourceType);
@@ -297,8 +302,23 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
                                                    Components components) {
         try {
             DelegatingResourceDescription description = handler.getRepresentationDescription(representation);
+            
+            // Simple fallback check
             if (description == null || description.getProperties() == null) {
-                log.debug("No description or properties for representation: {}", representation);
+                if (representation instanceof RefRepresentation) {
+                    description = createFallbackRefDescription(handler);
+                    log.info("Using REF fallback for {}", handler.getClass().getSimpleName());
+                } else if (representation instanceof DefaultRepresentation) {
+                    description = createFallbackDefaultDescription(handler);
+                    log.info("Using DEFAULT fallback for {}", handler.getClass().getSimpleName());
+                } else {
+                    log.debug("No fallback available for representation: {}", representation);
+                    return null;
+                }
+            }
+            
+            if (description == null || description.getProperties() == null) {
+                log.debug("No description or properties available even with fallback for representation: {}", representation);
                 return null;
             }
             
@@ -381,7 +401,7 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
             return new ArraySchema().items(itemSchema);
         }
         
-        String cleanType = cleanTypeString(javaType);
+        String cleanType = SchemaNameGenerator.cleanTypeString(javaType);
         String lowerType = cleanType.toLowerCase();
         //TODO: Remove usage of .contains() and make it robust
         if (lowerType.equals("string") || lowerType.contains("string")) {
@@ -397,27 +417,13 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
         } else if (lowerType.equals("date") || lowerType.contains("date") || lowerType.contains("time")) {
             return new StringSchema().format("date-time");
         } else if (isOpenMRSDomainType(cleanType)) {
-            String refName = SchemaNameGenerator.schemaName(cleanType, representationHint);
+            String refName = SchemaNameGenerator.schemaNameFromPropertyType(javaType, representationHint);
             return new Schema<>().$ref("#/components/schemas/" + refName);
         } else if (lowerType.startsWith("object (from")) {
             return new ObjectSchema().description("Type determined from " + javaType);
         } else {
             return new ObjectSchema().description("Complex type: " + javaType);
         }
-    }
-    
-    /**
-     * Cleans up type strings by removing representation source information
-     */
-    private String cleanTypeString(String javaType) {
-        if (javaType == null) return "String";
-        
-        int fromIndex = javaType.indexOf(" (from ");
-        if (fromIndex > 0) {
-            return javaType.substring(0, fromIndex).trim();
-        }
-        
-        return javaType.trim();
     }
     
     private PathItem createPathItem(String resourceType, Map<String, Schema<?>> representationSchemas) {
@@ -515,11 +521,6 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
         }
     }
     
-    private String capitalize(String s) {
-        if (s == null || s.isEmpty()) return s;
-        return s.substring(0, 1).toUpperCase() + s.substring(1);
-    }
-    
     private boolean isCollectionType(String javaType) {
         return javaType.startsWith("List<") || javaType.startsWith("Set<") || javaType.startsWith("Collection<");
     }
@@ -578,7 +579,7 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
             return false;
         }
         
-        String cleanType = cleanTypeString(javaType);
+        String cleanType = SchemaNameGenerator.cleanTypeString(javaType);
         
         boolean isRestDomainType = restDomainTypes.contains(cleanType);
         
@@ -670,5 +671,80 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
         log.info("OpenAPI spec written to: {}", outputFile.getAbsolutePath());
         assertTrue(outputFile.exists(), "Output file should be created");
         assertTrue(outputFile.length() > 0, "Output file should not be empty");
+    }
+    
+    /**
+     * Creates a fallback REF representation description when getRepresentationDescription() returns null.
+     * Clones the logic from DataDelegatingCrudResource.asRef() and MetadataDelegatingCrudResource.convertToRef().
+     */
+    private DelegatingResourceDescription createFallbackRefDescription(DelegatingResourceHandler<?> handler) {
+        DelegatingResourceDescription description = new DelegatingResourceDescription();
+        description.addProperty("uuid");
+        description.addProperty("display");
+        
+        // Get delegate type and check for voided/retired properties
+        Class<?> delegateType = schemaIntrospectionService.getDelegateType(
+            (org.openmrs.module.webservices.rest.web.resource.api.Resource) handler);
+        
+        if (delegateType != null) {
+            try {
+                // Check if it has isVoided() method (OpenmrsData)
+                delegateType.getMethod("isVoided");
+                description.addProperty("voided");
+                log.debug("Added 'voided' property for OpenmrsData type: {}", delegateType.getSimpleName());
+            } catch (NoSuchMethodException e) {
+                try {
+                    // Check if it has isRetired() method (OpenmrsMetadata)
+                    delegateType.getMethod("isRetired");
+                    description.addProperty("retired");
+                    log.debug("Added 'retired' property for OpenmrsMetadata type: {}", delegateType.getSimpleName());
+                } catch (NoSuchMethodException e2) {
+                    // Neither voided nor retired - just uuid and display
+                    log.debug("No voided/retired property for type: {}", delegateType.getSimpleName());
+                }
+            }
+        }
+        
+        description.addSelfLink();
+        return description;
+    }
+    
+    /**
+     * Creates a fallback DEFAULT representation description when getRepresentationDescription() returns null.
+     * Clones the logic from DataDelegatingCrudResource.asDefaultRep() and MetadataDelegatingCrudResource.asDefaultRep().
+     */
+    private DelegatingResourceDescription createFallbackDefaultDescription(DelegatingResourceHandler<?> handler) {
+        DelegatingResourceDescription description = new DelegatingResourceDescription();
+        description.addProperty("uuid");
+        description.addProperty("display");
+        
+        // Get delegate type and add type-specific properties
+        Class<?> delegateType = schemaIntrospectionService.getDelegateType(
+            (org.openmrs.module.webservices.rest.web.resource.api.Resource) handler);
+        
+        if (delegateType != null) {
+            try {
+                // Check if it has isVoided() method (OpenmrsData)
+                delegateType.getMethod("isVoided");
+                description.addProperty("voided");
+                log.debug("Added 'voided' property for OpenmrsData DEFAULT: {}", delegateType.getSimpleName());
+            } catch (NoSuchMethodException e) {
+                try {
+                    // Check if it has isRetired() method (OpenmrsMetadata)
+                    delegateType.getMethod("isRetired");
+                    description.addProperty("name");
+                    description.addProperty("description");
+                    description.addProperty("retired");
+                    log.debug("Added metadata properties for OpenmrsMetadata DEFAULT: {}", delegateType.getSimpleName());
+                } catch (NoSuchMethodException e2) {
+                    // Generic type - just uuid and display
+                    log.debug("Using generic DEFAULT properties for type: {}", delegateType.getSimpleName());
+                }
+            }
+        }
+        
+        description.addSelfLink();
+        description.addLink("full", ".?v=" + RestConstants.REPRESENTATION_FULL);
+        return description;
     }
 } 
