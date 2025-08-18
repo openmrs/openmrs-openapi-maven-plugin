@@ -28,12 +28,6 @@ public class RepresentationAnalyzerMojo extends AbstractMojo {
     @Parameter(defaultValue = "${project}", required = true, readonly = true)
     private MavenProject project;
 
-    @Parameter(defaultValue = "${project.build.directory}/openapi", property = "outputDirectory")
-    private String outputDirectory;
-
-    @Parameter(defaultValue = "${project.artifactId}-openapi-spec.json", property = "outputFile")
-    private String outputFile;
-
     @Parameter(defaultValue = "300", property = "timeoutSeconds")
     private int timeoutSeconds;
 
@@ -46,13 +40,33 @@ public class RepresentationAnalyzerMojo extends AbstractMojo {
     @Parameter(property = "autoDetectResources", defaultValue = "true")
     private boolean autoDetectResources;
 
+    /**
+     * Gets the hardcoded output directory for OpenAPI specifications.
+     * Always uses target/openapi for consistency and predictability.
+     * 
+     * @return the output directory path
+     */
+    private String getOutputDirectory() {
+        return project.getBuild().getDirectory() + "/openapi";
+    }
+
+    /**
+     * Gets the hardcoded output file name for OpenAPI specifications.
+     * Always uses openapi.json for consistency and predictability.
+     * 
+     * @return the output file name
+     */
+    private String getOutputFileName() {
+        return "openapi.json";
+    }
+
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
         
         log.info("=== OpenMRS REST Representation Analyzer ===");
         log.info("Target module: {}", project.getArtifactId());
         log.debug("Project: {}", project.getName());
-        log.debug("Output directory: {}", outputDirectory);
+        log.debug("Output directory: {}", getOutputDirectory());
         
         if (autoDetectResources && (scanPackages == null || scanPackages.isEmpty())) {
             scanPackages = ModuleClasspathBuilder.detectResourcePackages(project);
@@ -64,7 +78,7 @@ public class RepresentationAnalyzerMojo extends AbstractMojo {
             scanPackages = new ArrayList<>();
         }
         
-        File outputDir = new File(outputDirectory);
+        File outputDir = new File(getOutputDirectory());
         if (!outputDir.exists()) {
             outputDir.mkdirs();
         }
@@ -127,8 +141,8 @@ public class RepresentationAnalyzerMojo extends AbstractMojo {
         command.add("-Dtarget.module.packages=" + String.join(",", scanPackages));
         command.add("-Dtarget.module.classesDir=" + project.getBuild().getOutputDirectory());
         
-        command.add("-DanalysisOutputDir=" + outputDirectory);
-        command.add("-DanalysisOutputFile=" + outputFile);
+        command.add("-DanalysisOutputDir=" + getOutputDirectory());
+        command.add("-DanalysisOutputFile=" + getOutputFileName());
         command.add("-Dopenmrs.version=" + openmrsVersion);
         
         command.add("org.junit.platform.console.ConsoleLauncher");
@@ -175,12 +189,12 @@ public class RepresentationAnalyzerMojo extends AbstractMojo {
     }
     
     private void processAnalysisResults() throws IOException {
-        File expectedOutput = new File(outputDirectory, outputFile);
+        File expectedOutput = new File(getOutputDirectory(), getOutputFileName());
         
         if (!expectedOutput.exists()) {
             log.warn("Expected output file not found: {}", expectedOutput.getAbsolutePath());
             
-            File targetDir = new File(outputDirectory);
+            File targetDir = new File(getOutputDirectory());
             File[] jsonFiles = targetDir.listFiles((dir, name) -> name.endsWith(".json"));
             if (jsonFiles != null && jsonFiles.length > 0) {
                 log.info("Found alternative output files:");
@@ -202,7 +216,7 @@ public class RepresentationAnalyzerMojo extends AbstractMojo {
             log.debug("Resource analysis completed successfully");
         }
         
-        File finalOutputFile = new File(outputDirectory, outputFile);
+        File finalOutputFile = new File(getOutputDirectory(), getOutputFileName());
         Files.copy(expectedOutput.toPath(), finalOutputFile.toPath(), 
                   java.nio.file.StandardCopyOption.REPLACE_EXISTING);
         log.debug("Final output: {}", finalOutputFile.getAbsolutePath());

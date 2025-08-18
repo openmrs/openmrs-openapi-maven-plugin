@@ -26,6 +26,12 @@ public class ModuleClasspathBuilder {
      * - All module dependencies (including webservices.rest if present)
      * - OpenMRS platform JARs
      * 
+     * Forked JVM Requirement: This classpath is used by a forked JVM process
+     * to avoid ClassLoader conflicts between the Maven plugin environment and the OpenMRS 
+     * runtime environment. The plugin needs to instantiate OpenMRS resources and run them
+     * in a full OpenMRS test context, which requires different versions of libraries
+     * (Spring, Hibernate, etc.) than what Maven uses internally.
+     * 
      * @param project The target module's Maven project
      * @return List of classpath entries as absolute file paths
      * @throws RuntimeException if plugin test JAR cannot be resolved
@@ -121,7 +127,7 @@ public class ModuleClasspathBuilder {
             return repoTestJar;
         }
         
-        throw new RuntimeException(createHelpfulErrorMessage());
+        throw new RuntimeException("Plugin test JAR not found. Please run 'mvn clean install' in the plugin directory first.");
     }
     
     /**
@@ -258,8 +264,10 @@ public class ModuleClasspathBuilder {
                     }
                 }
             }
-        } catch (Exception e) {
-            log.debug("Could not resolve test JAR from development environment: {}", e.getMessage());
+        } catch (SecurityException e) {
+            log.debug("Security restriction accessing file system for test JAR resolution: {}", e.getMessage());
+        } catch (NullPointerException e) {
+            log.warn("Unexpected null value during test JAR path resolution", e);
         }
         return null;
     }
@@ -318,25 +326,6 @@ public class ModuleClasspathBuilder {
     }
     
     /**
-     * Create a helpful error message for test JAR resolution failure.
-     */
-    private static String createHelpfulErrorMessage() {
-        return "Cannot find plugin test JAR. Please ensure the plugin was installed correctly:\n" +
-               "\n" +
-               "1. Navigate to the plugin directory:\n" +
-               "   cd /path/to/openmrs-rest-representation-analyzer\n" +
-               "\n" +
-               "2. Build and install the plugin:\n" +
-               "   mvn clean install\n" +
-               "\n" +
-               "3. Verify test JAR exists:\n" +
-               "   ls ~/.m2/repository/org/openmrs/plugin/openmrs-rest-analyzer/1.0.0-SNAPSHOT/\n" +
-               "   (Should contain: openmrs-rest-analyzer-1.0.0-SNAPSHOT-tests.jar)\n" +
-               "\n" +
-               "If the problem persists, check that the maven-jar-plugin is configured correctly.";
-    }
-    
-    /**
      * Try to find main JAR in development environment (plugin's own target directory).
      */
     private static String tryDevelopmentMainJar() {
@@ -375,8 +364,10 @@ public class ModuleClasspathBuilder {
                     }
                 }
             }
-        } catch (Exception e) {
-            log.debug("Could not resolve main JAR from development environment: {}", e.getMessage());
+        } catch (SecurityException e) {
+            log.debug("Security restriction accessing file system for main JAR resolution: {}", e.getMessage());
+        } catch (NullPointerException e) {
+            log.warn("Unexpected null value during main JAR path resolution", e);
         }
         return null;
     }

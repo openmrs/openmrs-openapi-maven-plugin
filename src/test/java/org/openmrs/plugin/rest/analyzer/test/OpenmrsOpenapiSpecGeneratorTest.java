@@ -359,7 +359,7 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
         
         String cleanType = cleanTypeString(javaType);
         String lowerType = cleanType.toLowerCase();
-        
+        //TODO: Remove usage of .contains() and make it robust
         if (lowerType.equals("string") || lowerType.contains("string")) {
             return new StringSchema();
         } else if (lowerType.equals("integer") || lowerType.equals("int") || lowerType.contains("int")) {
