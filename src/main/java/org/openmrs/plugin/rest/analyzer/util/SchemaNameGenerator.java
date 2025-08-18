@@ -32,21 +32,17 @@ public final class SchemaNameGenerator {
             return "Unknown";
         }
         
-        // Remove "Resource" suffix if present (for resource classes)
         String base = typeName.endsWith("Resource") 
             ? typeName.substring(0, typeName.length() - "Resource".length())
             : typeName;
         
-        // Apply kebab-case transformation (matches current processResourceHandler logic)
-        // This regex inserts a hyphen before each uppercase letter
+
         String kebab = base.replaceAll("([A-Z])", "-$1").toLowerCase(LOCALE);
         
-        // Remove leading hyphen if present
         if (kebab.startsWith("-")) {
             kebab = kebab.substring(1);
         }
         
-        // Capitalize first letter to match existing "Queue-room" style
         return StringUtils.capitalize(kebab);
     }
     
@@ -69,12 +65,10 @@ public final class SchemaNameGenerator {
             representation = "default";
         }
         
-        // Remove "Resource" suffix if present (for resource classes)
         String base = typeName.endsWith("Resource") 
             ? typeName.substring(0, typeName.length() - "Resource".length())
             : typeName;
         
-        // Simple PascalCase - no kebab conversion needed!
         String capitalizedRep = StringUtils.capitalize(representation.toLowerCase(LOCALE));
         
         return base + capitalizedRep;
@@ -91,11 +85,9 @@ public final class SchemaNameGenerator {
         if (schemaName == null || schemaName.isEmpty()) {
             return false;
         }
-        
-        // Expected PascalCase pattern: starts with capital letter, contains only letters,
-        // ends with capitalized representation (Default, Full, Ref, etc.)
+
         return schemaName.matches("^[A-Z][a-zA-Z]*[A-Z][a-z]+$") || 
-               schemaName.matches("^[A-Z][a-z]+$"); // Single word resources like "Queue"
+               schemaName.matches("^[A-Z][a-z]+$");
     }
     
     /**
@@ -110,7 +102,6 @@ public final class SchemaNameGenerator {
             return null;
         }
         
-        // Look for common representation suffixes
         String[] representations = {"Default", "Full", "Ref", "Custom"};
         for (String rep : representations) {
             if (schemaName.endsWith(rep)) {
@@ -135,9 +126,7 @@ public final class SchemaNameGenerator {
         }
         return schemaName;
     }
-    
-    // === CORE NAMING METHODS FOR UNIFIED SCHEMA NAME GENERATION ===
-    
+        
     /**
      * Extracts the base resource name from a delegate class, handling version suffixes and compound names.
      * This is the primary method for normalizing delegate type names to match introspection service results.
@@ -158,16 +147,14 @@ public final class SchemaNameGenerator {
         
         String className = delegateType.getSimpleName();
         
-        // Remove version suffixes like "1_8", "1_9", "1_10", etc.
-        // Pattern: ends with digit(s), underscore, digit(s)
+
         String baseClassName = className.replaceAll("\\d+_\\d+$", "");
         
-        // Handle compound names like "UserAndPassword" -> "User"
-        // This matches the pattern of many OpenMRS delegate types
+
         if (baseClassName.contains("And")) {
             String[] parts = baseClassName.split("And");
             if (parts.length > 0) {
-                baseClassName = parts[0]; // Take the first part
+                baseClassName = parts[0];
             }
         }
         
