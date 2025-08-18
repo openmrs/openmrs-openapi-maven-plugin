@@ -14,6 +14,7 @@ import org.openmrs.module.webservices.rest.web.representation.Representation;
 import org.openmrs.web.test.jupiter.BaseModuleWebContextSensitiveTest;
 import org.openmrs.plugin.rest.analyzer.introspection.SchemaIntrospectionService;
 import org.openmrs.plugin.rest.analyzer.introspection.SchemaIntrospectionServiceImpl;
+import org.openmrs.plugin.rest.analyzer.introspection.PropertyTypeResolver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -50,14 +51,22 @@ import static org.junit.jupiter.api.Assertions.*;
 public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensitiveTest {
     
     private static final Logger log = LoggerFactory.getLogger(OpenmrsOpenapiSpecGeneratorTest.class);
-    private static final String OUTPUT_FILE = "openapi-spec-output.json";
     
     private SchemaIntrospectionService schemaIntrospectionService;
+    private PropertyTypeResolver propertyTypeResolver;
     private Set<String> restDomainTypes = new HashSet<>();
     
     @BeforeEach
     public void setup() throws Exception {
         log.info("=== Setting up OpenAPI Spec Generator Test ===");
+        
+        String targetModuleGroupId = System.getProperty("target.module.groupId", "unknown");
+        String targetModuleArtifactId = System.getProperty("target.module.artifactId", "unknown");
+        String targetModuleVersion = System.getProperty("target.module.version", "unknown");
+        String scanPackagesStr = System.getProperty("target.module.packages", "");
+        
+        log.info("Target module: {}:{}:{}", targetModuleGroupId, targetModuleArtifactId, targetModuleVersion);
+        log.info("Scan packages: {}", scanPackagesStr);
         
         RestService restService = Context.getService(RestService.class);
         assertNotNull(restService, "RestService should be available");
@@ -69,23 +78,52 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
         
         schemaIntrospectionService = new SchemaIntrospectionServiceImpl();
         
-        buildRestDomainTypeSet(restService);
+        List<String> scanPackages = scanPackagesStr.isEmpty() ? 
+            new ArrayList<>() : 
+            Arrays.asList(scanPackagesStr.split(","));
+            
+        buildRestDomainTypeSet(restService, scanPackages, targetModuleArtifactId);
         
-        log.info("=== Setup Complete ===");
+        propertyTypeResolver = new PropertyTypeResolver(schemaIntrospectionService);
+        
+        log.info("=== Setup Complete for {} ===", targetModuleArtifactId);
     }
     
     /**
      * Builds a set of domain types by discovering all delegate types from REST resource handlers.
      * This ensures our OpenAPI spec only references types that are actually exposed via REST.
+     * 
+     * @param restService The OpenMRS REST service
+     * @param scanPackages Optional list of packages to filter resources (empty means scan all)
+     * @param targetModule The name of the target module being analyzed
      */
-    private void buildRestDomainTypeSet(RestService restService) {
-        log.info("Building domain type set from REST resource handlers...");
+    private void buildRestDomainTypeSet(RestService restService, List<String> scanPackages, String targetModule) {
+        log.info("Building domain type set from REST resource handlers for module: {}", targetModule);
         
         Collection<DelegatingResourceHandler<?>> handlers = restService.getResourceHandlers();
         int discoveredTypes = 0;
+        int filteredHandlers = 0;
         
         for (DelegatingResourceHandler<?> handler : handlers) {
             try {
+                if (!scanPackages.isEmpty()) {
+                    String handlerPackage = handler.getClass().getPackage().getName();
+                    boolean matchesPackage = scanPackages.stream()
+                        .anyMatch(pkg -> handlerPackage.startsWith(pkg.trim()));
+                    
+                    if (!matchesPackage) {
+                        log.debug("Skipping handler outside scan packages: {} (package: {})", 
+                                handler.getClass().getSimpleName(), handlerPackage);
+                        continue;
+                    } else {
+                        filteredHandlers++;
+                        log.debug("Including handler: {} (package: {})", 
+                                handler.getClass().getSimpleName(), handlerPackage);
+                    }
+                } else {
+                    filteredHandlers++;
+                }
+                
                 if (!(handler instanceof org.openmrs.module.webservices.rest.web.resource.api.Resource)) {
                     log.debug("Skipping handler that doesn't implement Resource interface: {}", 
                             handler.getClass().getSimpleName());
@@ -165,8 +203,9 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
         
         writeOpenApiToFile(openAPI);
         
+        String outputFileName = System.getProperty("analysisOutputFile", "openapi-spec-output.json");
         log.info("OpenAPI 3.0 spec generated successfully: {} (processed {}/{} handlers)", 
-                OUTPUT_FILE, successfulHandlers, processedHandlers);
+                outputFileName, successfulHandlers, processedHandlers);
     }
     
     private boolean processResourceHandler(DelegatingResourceHandler<?> handler, Components components, Paths paths) {
@@ -195,8 +234,10 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
                 return false;
             }
             
-            Map<String, String> allProperties = schemaIntrospectionService.discoverResourceProperties((org.openmrs.module.webservices.rest.web.resource.api.Resource) handler);
-            log.debug("Discovered {} properties for {}", allProperties.size(), resourceType);
+            Map<String, String> introspectedProperties = schemaIntrospectionService.discoverResourceProperties((org.openmrs.module.webservices.rest.web.resource.api.Resource) handler);
+            log.debug("Discovered {} introspected properties for {}", introspectedProperties.size(), resourceType);
+            
+            Map<String, String> allRepresentationProperties = new LinkedHashMap<>(introspectedProperties);
             
             Map<String, Schema<?>> representationSchemas = new LinkedHashMap<>();
             List<String> representations = Arrays.asList("default", "full", "ref");
@@ -205,7 +246,7 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
                 Representation representation = getRepresentationByName(repName);
                 if (representation == null) continue;
                 
-                Schema<?> schema = generateRepresentationSchema(handler, representation, allProperties, components);
+                Schema<?> schema = generateRepresentationSchema(handler, representation, allRepresentationProperties, components);
                 if (schema != null) {
                     String schemaName = capitalize(resourceType) + capitalize(repName); // e.g., "PatientDefault"
                     components.addSchemas(schemaName, schema);
@@ -213,7 +254,10 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
                     log.debug("Created schema for {} representation: {}", repName, schemaName);
                 }
             }
-            Schema<?> customSchema = generateCustomRepresentationSchema(resourceType, allProperties, components);
+            
+            log.debug("Total properties (introspected + representations) for {}: {}", resourceType, allRepresentationProperties.size());
+            
+            Schema<?> customSchema = generateCustomRepresentationSchema(resourceType, allRepresentationProperties, components);
             if (customSchema != null) {
                 String customSchemaName = capitalize(resourceType) + "Custom";
                 components.addSchemas(customSchemaName, customSchema);
@@ -251,17 +295,21 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
             
             ObjectSchema schema = new ObjectSchema();
             
+            @SuppressWarnings("rawtypes")
             Map<String, Schema> schemaProperties = new HashMap<>();
             for (Map.Entry<String, DelegatingResourceDescription.Property> entry : description.getProperties().entrySet()) {
                 String propertyName = entry.getKey();
-                String javaType = allProperties.get(propertyName);
+                DelegatingResourceDescription.Property property = entry.getValue();
                 
-                if (javaType == null) {
-                    log.warn("Property '{}' not found in introspection results, using fallback", propertyName);
-                    javaType = "String";
-                }
+                String accurateType = propertyTypeResolver.determineAccuratePropertyType(
+                    propertyName, property, handler, allProperties);
                 
-                Schema<?> propertySchema = mapToSwaggerSchema(javaType, components);
+                allProperties.put(propertyName, accurateType);
+                
+                log.debug("Property '{}' resolved to accurate type: {} (from {} representation)", 
+                         propertyName, accurateType, representation.getClass().getSimpleName());
+                
+                Schema<?> propertySchema = mapToSwaggerSchema(accurateType, components);
                 schemaProperties.put(propertyName, propertySchema);
             }
             schema.setProperties(schemaProperties);
@@ -284,6 +332,7 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
         }
         ObjectSchema schema = new ObjectSchema();
         schema.setDescription("Custom representation - specify any subset of these properties in the ?v=custom:(...) query parameter");
+        @SuppressWarnings("rawtypes")
         Map<String, Schema> schemaProperties = new HashMap<>();
         for (Map.Entry<String, String> entry : allProperties.entrySet()) {
             String propertyName = entry.getKey();
@@ -308,23 +357,43 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
             return new ArraySchema().items(itemSchema);
         }
         
-        String lowerType = javaType.toLowerCase();
-        if (lowerType.contains("string") || lowerType.equals("string")) {
+        String cleanType = cleanTypeString(javaType);
+        String lowerType = cleanType.toLowerCase();
+        //TODO: Remove usage of .contains() and make it robust
+        if (lowerType.equals("string") || lowerType.contains("string")) {
             return new StringSchema();
-        } else if (lowerType.contains("int") || lowerType.contains("long") || lowerType.equals("integer")) {
+        } else if (lowerType.equals("integer") || lowerType.equals("int") || lowerType.contains("int")) {
             return new IntegerSchema();
-        } else if (lowerType.contains("double") || lowerType.contains("float") || lowerType.equals("number")) {
+        } else if (lowerType.equals("long") || lowerType.contains("long")) {
+            return new IntegerSchema().format("int64");
+        } else if (lowerType.equals("double") || lowerType.equals("float") || lowerType.equals("number") || lowerType.contains("double") || lowerType.contains("float")) {
             return new NumberSchema();
-        } else if (lowerType.contains("boolean") || lowerType.equals("boolean")) {
+        } else if (lowerType.equals("boolean") || lowerType.contains("boolean")) {
             return new BooleanSchema();
-        } else if (lowerType.contains("date") || lowerType.equals("date")) {
+        } else if (lowerType.equals("date") || lowerType.contains("date") || lowerType.contains("time")) {
             return new StringSchema().format("date-time");
-        } else if (isOpenMRSDomainType(javaType)) {
-            String refName = capitalize(javaType);
+        } else if (isOpenMRSDomainType(cleanType)) {
+            String refName = capitalize(cleanType);
             return new Schema<>().$ref("#/components/schemas/" + refName);
+        } else if (lowerType.startsWith("object (from")) {
+            return new ObjectSchema().description("Type determined from " + javaType);
         } else {
-            return new ObjectSchema();
+            return new ObjectSchema().description("Complex type: " + javaType);
         }
+    }
+    
+    /**
+     * Cleans up type strings by removing representation source information
+     */
+    private String cleanTypeString(String javaType) {
+        if (javaType == null) return "String";
+        
+        int fromIndex = javaType.indexOf(" (from ");
+        if (fromIndex > 0) {
+            return javaType.substring(0, fromIndex).trim();
+        }
+        
+        return javaType.trim();
     }
     
     private PathItem createPathItem(String resourceType, Map<String, Schema<?>> representationSchemas) {
@@ -379,6 +448,7 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
         MediaType mediaType = new MediaType();
         
         ObjectSchema responseSchema = new ObjectSchema();
+        @SuppressWarnings("rawtypes")
         List<Schema> oneOfSchemas = new ArrayList<>();
         Map<String, String> mapping = new LinkedHashMap<>();
         for (Map.Entry<String, Schema<?>> entry : representationSchemas.entrySet()) {
@@ -483,21 +553,33 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
     
     /**
      * Determines if a Java type should be treated as an OpenMRS domain type for $ref generation.
-     * Uses contextual REST discovery to ensure only types actually exposed via REST are included.
+     * Enhanced to handle cleaned type strings and better domain type detection.
      */
     private boolean isOpenMRSDomainType(String javaType) {
         if (javaType == null) {
             return false;
         }
         
-        boolean isRestDomainType = restDomainTypes.contains(javaType);
+        String cleanType = cleanTypeString(javaType);
+        
+        boolean isRestDomainType = restDomainTypes.contains(cleanType);
         
         if (isRestDomainType) {
-            log.debug("Treating '{}' as domain type (discovered via REST)", javaType);
+            log.debug("Treating '{}' as domain type (discovered via REST)", cleanType);
             return true;
         }
         
-        log.debug("Treating '{}' as generic object (not discovered via REST)", javaType);
+        Set<String> knownDomainTypes = new HashSet<>(Arrays.asList(
+            "Person", "Patient", "User", "Provider", "Encounter", "Visit", "Obs", "Order",
+            "Concept", "Drug", "Location", "Program", "Role", "Privilege", "Form", "Field"
+        ));
+        
+        if (knownDomainTypes.contains(cleanType)) {
+            log.debug("Treating '{}' as known OpenMRS domain type", cleanType);
+            return true;
+        }
+        
+        log.debug("Treating '{}' as generic object (not a recognized domain type)", cleanType);
         return false;
     }
     
@@ -549,12 +631,17 @@ public class OpenmrsOpenapiSpecGeneratorTest extends BaseModuleWebContextSensiti
     }
     
     private void writeOpenApiToFile(OpenAPI openAPI) throws Exception {
-        File outputDir = new File("target");
+        String outputDirPath = System.getProperty("analysisOutputDir", "target");
+        String outputFileName = System.getProperty("analysisOutputFile", "openapi-spec-output.json");
+        
+        log.info("Output configuration - Dir: {}, File: {}", outputDirPath, outputFileName);
+        
+        File outputDir = new File(outputDirPath);
         if (!outputDir.exists()) {
             outputDir.mkdirs();
         }
         
-        File outputFile = new File(outputDir, OUTPUT_FILE);
+        File outputFile = new File(outputDir, outputFileName);
         
         String json = io.swagger.v3.core.util.Json.pretty(openAPI);
         

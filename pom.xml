@@ -72,6 +72,11 @@
             <scope>test</scope>
         </dependency>
         <dependency>
+            <groupId>org.junit.platform</groupId>
+            <artifactId>junit-platform-console-standalone</artifactId>
+            <version>1.8.2</version>
+        </dependency>
+        <dependency>
             <groupId>org.openmrs.web</groupId>
             <artifactId>openmrs-web</artifactId>
             <version>${openmrs.version}</version>
@@ -85,7 +90,6 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <!-- Required for BaseModuleWebContextSensitiveTest and setting global properties-->
             <groupId>org.openmrs.web</groupId>
             <artifactId>openmrs-web</artifactId>
             <version>${openmrs.version}</version>
@@ -142,6 +146,11 @@
             <artifactId>swagger-core</artifactId>
             <version>2.2.15</version>
         </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
+            <version>2.13.4</version>
+        </dependency>
     </dependencies>
 
     <build>
@@ -188,6 +197,27 @@
                         <version>5.8.2</version>
                     </dependency>
                 </dependencies>
+            </plugin>
+            
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.2.2</version>
+                <executions>
+                    <execution>
+                        <id>test-jar</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>test-jar</goal>
+                        </goals>
+                        <configuration>
+                            <includes>
+                                <include>**/*Test.class</include>
+                                <include>**/introspection/**/*.class</include>
+                            </includes>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

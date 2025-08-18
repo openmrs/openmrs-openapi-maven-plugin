@@ -28,26 +28,57 @@ public class RepresentationAnalyzerMojo extends AbstractMojo {
     @Parameter(defaultValue = "${project}", required = true, readonly = true)
     private MavenProject project;
 
-    @Parameter(defaultValue = "${project.build.directory}/representation-analysis", property = "outputDirectory")
-    private String outputDirectory;
-
-    @Parameter(defaultValue = "representation-analysis.json", property = "outputFile")
-    private String outputFile;
-
     @Parameter(defaultValue = "300", property = "timeoutSeconds")
     private int timeoutSeconds;
 
     @Parameter(defaultValue = "2.4.x", property = "openmrsVersion")
     private String openmrsVersion;
+    
+    @Parameter(property = "scanPackages")
+    private List<String> scanPackages;
+    
+    @Parameter(property = "autoDetectResources", defaultValue = "true")
+    private boolean autoDetectResources;
+
+    /**
+     * Gets the hardcoded output directory for OpenAPI specifications.
+     * Always uses target/openapi for consistency and predictability.
+     * 
+     * @return the output directory path
+     */
+    private String getOutputDirectory() {
+        return project.getBuild().getDirectory() + "/openapi";
+    }
+
+    /**
+     * Gets the hardcoded output file name for OpenAPI specifications.
+     * Always uses openapi.json for consistency and predictability.
+     * 
+     * @return the output file name
+     */
+    private String getOutputFileName() {
+        return "openapi.json";
+    }
 
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
         
         log.info("=== OpenMRS REST Representation Analyzer ===");
+        log.info("Target module: {}", project.getArtifactId());
         log.debug("Project: {}", project.getName());
-        log.debug("Output directory: {}", outputDirectory);
+        log.debug("Output directory: {}", getOutputDirectory());
         
-        File outputDir = new File(outputDirectory);
+        if (autoDetectResources && (scanPackages == null || scanPackages.isEmpty())) {
+            scanPackages = ModuleClasspathBuilder.detectResourcePackages(project);
+            log.info("Auto-detected resource packages: {}", scanPackages);
+        } else if (scanPackages != null && !scanPackages.isEmpty()) {
+            log.info("Using configured scan packages: {}", scanPackages);
+        } else {
+            log.warn("No scan packages specified and auto-detection disabled. May not find resources.");
+            scanPackages = new ArrayList<>();
+        }
+        
+        File outputDir = new File(getOutputDirectory());
         if (!outputDir.exists()) {
             outputDir.mkdirs();
         }
@@ -86,20 +117,11 @@ public class RepresentationAnalyzerMojo extends AbstractMojo {
     
     private int runTestInForkedProcess() throws IOException, InterruptedException {
         
-        List<String> classpath = new ArrayList<>();
-        
-        classpath.add(project.getBuild().getOutputDirectory());
-        classpath.add(project.getBuild().getTestOutputDirectory());
-        
-        for (Object artifact : project.getTestArtifacts()) {
-            org.apache.maven.artifact.Artifact dep = (org.apache.maven.artifact.Artifact) artifact;
-            if (dep.getFile() != null) {
-                classpath.add(dep.getFile().getAbsolutePath());
-            }
-        }
-        
+        List<String> classpath = ModuleClasspathBuilder.buildTargetModuleClasspath(project);
         String classpathString = String.join(File.pathSeparator, classpath);
-        log.debug("Forked process will use {} classpath entries", classpath.size());
+        
+        log.debug("Forked process will use {} classpath entries for module: {}", 
+                classpath.size(), project.getArtifactId());
         
         List<String> command = new ArrayList<>();
         command.add(getJavaExecutable());
@@ -113,13 +135,22 @@ public class RepresentationAnalyzerMojo extends AbstractMojo {
         command.add("-DdatabasePassword=");
         command.add("-Djava.awt.headless=true");
         
-        command.add("-DanalysisOutputDir=" + outputDirectory);
-        command.add("-DanalysisOutputFile=" + outputFile);
+        command.add("-Dtarget.module.groupId=" + project.getGroupId());
+        command.add("-Dtarget.module.artifactId=" + project.getArtifactId());
+        command.add("-Dtarget.module.version=" + project.getVersion());
+        command.add("-Dtarget.module.packages=" + String.join(",", scanPackages));
+        command.add("-Dtarget.module.classesDir=" + project.getBuild().getOutputDirectory());
+        
+        command.add("-DanalysisOutputDir=" + getOutputDirectory());
+        command.add("-DanalysisOutputFile=" + getOutputFileName());
         command.add("-Dopenmrs.version=" + openmrsVersion);
         
-        command.add("org.junit.runner.JUnitCore");
+        command.add("org.junit.platform.console.ConsoleLauncher");
+        command.add("--select-class");
         command.add("org.openmrs.plugin.rest.analyzer.test.OpenmrsOpenapiSpecGeneratorTest");
         
+        log.info("Executing analysis for module: {} with packages: {}", 
+                project.getArtifactId(), scanPackages);
         log.debug("Executing command: {}", String.join(" ", command));
         
         ProcessBuilder pb = new ProcessBuilder(command);
@@ -158,12 +189,12 @@ public class RepresentationAnalyzerMojo extends AbstractMojo {
     }
     
     private void processAnalysisResults() throws IOException {
-        File expectedOutput = new File(project.getBuild().getDirectory(), "representation-analysis.json");
+        File expectedOutput = new File(getOutputDirectory(), getOutputFileName());
         
         if (!expectedOutput.exists()) {
             log.warn("Expected output file not found: {}", expectedOutput.getAbsolutePath());
             
-            File targetDir = new File(project.getBuild().getDirectory());
+            File targetDir = new File(getOutputDirectory());
             File[] jsonFiles = targetDir.listFiles((dir, name) -> name.endsWith(".json"));
             if (jsonFiles != null && jsonFiles.length > 0) {
                 log.info("Found alternative output files:");
@@ -185,7 +216,7 @@ public class RepresentationAnalyzerMojo extends AbstractMojo {
             log.debug("Resource analysis completed successfully");
         }
         
-        File finalOutputFile = new File(outputDirectory, outputFile);
+        File finalOutputFile = new File(getOutputDirectory(), getOutputFileName());
         Files.copy(expectedOutput.toPath(), finalOutputFile.toPath(), 
                   java.nio.file.StandardCopyOption.REPLACE_EXISTING);
         log.debug("Final output: {}", finalOutputFile.getAbsolutePath());
