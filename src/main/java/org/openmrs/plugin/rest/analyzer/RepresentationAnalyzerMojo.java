@@ -64,24 +64,10 @@ public class RepresentationAnalyzerMojo extends AbstractMojo {
      * List of OpenMRS platform versions to generate OpenAPI specifications for.
      * When specified, the plugin will generate separate spec files for each version.
      * 
-     * Example:
-     * <versionsToGenerate>
-     *     <version>2.3.4</version>
-     *     <version>2.4.6</version>
-     *     <version>2.5.0</version>
-     * </versionsToGenerate>
-     * 
      * Output files will be named: {moduleName}-openapi-spec-{version}.json
      */
     @Parameter(property = "versionsToGenerate")
     private List<String> versionsToGenerate;
-
-    /**
-     * Whether to generate a comparison report showing API differences between versions.
-     * Only applicable when versionsToGenerate contains multiple versions.
-     */
-    @Parameter(property = "generateComparisonReport", defaultValue = "false")
-    private boolean generateComparisonReport;
 
     /**
      * Whether to fail the build if any version-specific generation fails.
@@ -150,16 +136,13 @@ public class RepresentationAnalyzerMojo extends AbstractMojo {
             log.warn("No scan packages specified and auto-detection disabled. May not find resources.");
             scanPackages = new ArrayList<>();
         }
-        
-        File outputDir = new File(getOutputDirectory());
-        }
     }
 
     /**
      * Creates output directory if it doesn't exist.
      */
     private void prepareOutputDirectory() {
-        File outputDir = new File(outputDirectory);
+        File outputDir = new File(getOutputDirectory());
         if (!outputDir.exists()) {
             outputDir.mkdirs();
         }
@@ -186,7 +169,7 @@ public class RepresentationAnalyzerMojo extends AbstractMojo {
         log.info("Generating OpenAPI specification for OpenMRS version: {}", version);
         
         try {
-            String versionSpecificOutputFile = outputFile; // Keep original filename for single version
+            String versionSpecificOutputFile = getOutputFileName(); // Use hardcoded filename for single version
             int exitCode = runTestInForkedProcess(version, versionSpecificOutputFile);
             
             if (exitCode != 0) {
@@ -211,7 +194,6 @@ public class RepresentationAnalyzerMojo extends AbstractMojo {
         
         List<String> successfulVersions = new ArrayList<>();
         List<String> failedVersions = new ArrayList<>();
-        long startTime = System.currentTimeMillis();
         
         for (String version : versions) {
             try {
@@ -226,23 +208,16 @@ public class RepresentationAnalyzerMojo extends AbstractMojo {
                 }
                 
                 successfulVersions.add(version);
-                log.info("✅ OpenMRS {}: {} generated successfully", version, versionSpecificOutputFile);
+                log.info("OpenMRS {}: {} generated successfully", version, versionSpecificOutputFile);
                 
             } catch (Exception e) {
                 failedVersions.add(version);
-                log.error("❌ OpenMRS {}: Generation failed - {}", version, e.getMessage());
+                log.error("OpenMRS {}: Generation failed - {}", version, e.getMessage());
                 
                 if (failOnVersionError) {
                     throw new MojoExecutionException("Failed to generate spec for version " + version, e);
                 }
             }
-        }
-        
-        // Print summary
-        printMultiVersionSummary(successfulVersions, failedVersions, startTime);
-        
-        if (generateComparisonReport && successfulVersions.size() > 1) {
-            generateVersionComparisonReport(successfulVersions);
         }
         
         if (!failedVersions.isEmpty() && failOnVersionError) {
@@ -277,9 +252,6 @@ public class RepresentationAnalyzerMojo extends AbstractMojo {
         command.add("-Dtarget.module.classesDir=" + project.getBuild().getOutputDirectory());
         
         command.add("-DanalysisOutputDir=" + getOutputDirectory());
-        command.add("-DanalysisOutputFile=" + getOutputFileName());
-        command.add("-Dopenmrs.version=" + openmrsVersion);
-        command.add("-DanalysisOutputDir=" + outputDirectory);
         command.add("-DanalysisOutputFile=" + targetOutputFile);
         command.add("-Dopenmrs.version=" + targetVersion);
         
@@ -378,7 +350,7 @@ public class RepresentationAnalyzerMojo extends AbstractMojo {
      * Generates version-specific output filename.
      */
     private String generateVersionSpecificFilename(String version) {
-        String baseFilename = outputFile;
+        String baseFilename = getOutputFileName();
         
         // Remove .json extension if present
         if (baseFilename.endsWith(".json")) {
@@ -397,52 +369,5 @@ public class RepresentationAnalyzerMojo extends AbstractMojo {
             Thread.currentThread().interrupt();
         }
         throw new MojoExecutionException("Failed to execute analysis process for version " + version, e);
-    }
-    
-    /**
-     * Prints a summary of multi-version generation results.
-     */
-    private void printMultiVersionSummary(List<String> successfulVersions, List<String> failedVersions, long startTime) {
-        long totalTime = System.currentTimeMillis() - startTime;
-        
-        log.info("=== Multi-Version OpenAPI Generation Summary ===");
-        
-        if (!successfulVersions.isEmpty()) {
-            log.info("✅ Successfully generated {} specification(s):", successfulVersions.size());
-            for (String version : successfulVersions) {
-                String filename = generateVersionSpecificFilename(version);
-                File outputFile = new File(outputDirectory, filename);
-                long fileSize = outputFile.exists() ? outputFile.length() : 0;
-                log.info("   OpenMRS {}: {} ({} bytes)", version, filename, fileSize);
-            }
-        }
-        
-        if (!failedVersions.isEmpty()) {
-            log.warn("❌ Failed to generate {} specification(s):", failedVersions.size());
-            for (String version : failedVersions) {
-                log.warn("   OpenMRS {}: Generation failed", version);
-            }
-        }
-        
-        log.info("Total execution time: {}s", totalTime / 1000.0);
-        log.info("==============================");
-    }
-    
-    /**
-     * Generates a comparison report between different OpenMRS versions.
-     * This is a placeholder for future implementation.
-     */
-    private void generateVersionComparisonReport(List<String> successfulVersions) {
-        log.info("=== Version Comparison Report ===");
-        log.info("📊 Comparison report for {} versions: {}", successfulVersions.size(), successfulVersions);
-        
-        // TODO: Implement version comparison logic
-        // - Compare API endpoints across versions
-        // - Identify new/removed/changed resources
-        // - Generate diff report
-        
-        log.info("Note: Detailed version comparison is not yet implemented");
-        log.info("Generated specifications can be manually compared using external tools");
-        log.info("==============================");
     }
 }
